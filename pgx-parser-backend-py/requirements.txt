@@ -1,0 +1,8 @@
+fastapi>=0.111
+uvicorn[standard]>=0.30
+pydantic>=2.6
+pypdf>=4.2
+python-dotenv>=1.0
+python-multipart>=0.0.9
+azure-ai-documentintelligence>=1.0
+azure-core>=1.30
