@@ -6,3 +6,4 @@ python-dotenv>=1.0
 python-multipart>=0.0.9
 azure-ai-documentintelligence>=1.0
 azure-core>=1.30
+openai>=1.0.0

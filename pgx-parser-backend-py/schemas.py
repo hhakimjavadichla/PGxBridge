@@ -62,9 +62,16 @@ class PatientInfo(BaseModel):
     indication_for_testing: Optional[str] = None
 
 
-class PgxExtractResponse(BaseModel):
-    """Response schema for PGX data extraction."""
-    meta: Meta
+class ExtractionResults(BaseModel):
+    """Combined extraction results from both methods."""
     patient_info: PatientInfo
     pgx_genes: List[PgxGeneData]
-    extraction_method: str = "azure_layout_parsing"
+    extraction_method: str
+
+
+class PgxExtractResponse(BaseModel):
+    """Response schema for PGX data extraction with both methods."""
+    meta: Meta
+    document_intelligence: ExtractionResults
+    llm_extraction: Optional[ExtractionResults] = None
+    comparison_available: bool = False

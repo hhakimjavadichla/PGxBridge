@@ -11,11 +11,12 @@ from fastapi.responses import JSONResponse
 from azure.core.exceptions import AzureError
 from dotenv import load_dotenv
 
-from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData, PatientInfo
+from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData, PatientInfo, ExtractionResults
 from pdf_filter import find_pages_with_keyword, build_filtered_pdf
 from azure_client import analyze_layout
 from pgx_parser import extract_pgx_data, format_pgx_table, PGX_GENES
 from patient_parser import extract_patient_info_from_first_page
+from llm_parser import extract_patient_info_with_llm, extract_pgx_data_with_llm
 
 # Load environment variables
 load_dotenv()
@@ -295,11 +296,59 @@ async def extract_pgx_data_endpoint(
     
     logger.info(f"Successfully extracted data for {genes_found}/{len(PGX_GENES)} genes")
     
-    return PgxExtractResponse(
-        meta=process_result.meta,
+    # Create Document Intelligence results
+    di_results = ExtractionResults(
         patient_info=patient_info,
         pgx_genes=pgx_genes,
-        extraction_method="azure_layout_parsing"
+        extraction_method="azure_document_intelligence"
+    )
+    
+    # LLM extraction (parallel process) - make it optional for now
+    llm_results = None
+    try:
+        # Only attempt LLM extraction if environment variables are set
+        if os.environ.get("AZURE_OPENAI_API_KEY") and os.environ.get("AZURE_OPENAI_ENDPOINT"):
+            logger.info("Starting LLM extraction...")
+            
+            # Extract first page content for patient info
+            from pypdf import PdfReader
+            import io
+            pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
+            first_page_content = pdf_reader.pages[0].extract_text()
+            
+            # Extract filtered content for PGX data (from matched pages)
+            filtered_content = ""
+            for page_num in process_result.meta.matched_pages:
+                # Convert to 0-based index
+                page_index = page_num - 1
+                if page_index < len(pdf_reader.pages):
+                    filtered_content += pdf_reader.pages[page_index].extract_text() + "\n"
+            
+            # Extract patient info with LLM
+            llm_patient_info = extract_patient_info_with_llm(first_page_content)
+            logger.info("Successfully extracted patient information (LLM)")
+            
+            # Extract PGX data with LLM
+            llm_pgx_genes = extract_pgx_data_with_llm(filtered_content)
+            logger.info("Successfully extracted PGX data (LLM)")
+            
+            llm_results = ExtractionResults(
+                patient_info=llm_patient_info,
+                pgx_genes=llm_pgx_genes,
+                extraction_method="azure_openai_llm"
+            )
+        else:
+            logger.info("Azure OpenAI not configured, skipping LLM extraction")
+        
+    except Exception as e:
+        logger.error(f"LLM extraction failed: {e}")
+        # LLM extraction is optional, continue without it
+    
+    return PgxExtractResponse(
+        meta=process_result.meta,
+        document_intelligence=di_results,
+        llm_extraction=llm_results,
+        comparison_available=llm_results is not None
     )
 
 

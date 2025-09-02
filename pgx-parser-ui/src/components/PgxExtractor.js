@@ -54,11 +54,11 @@ function PgxExtractor() {
 
   // Render patient information table
   const renderPatientTable = () => {
-    if (!result || !result.patient_info) {
+    if (!result || !result.document_intelligence || !result.document_intelligence.patient_info) {
       return null;
     }
 
-    const patientData = result.patient_info;
+    const patientData = result.document_intelligence.patient_info;
     const hasData = Object.values(patientData).some(value => value && value !== 'Not found');
     
     if (!hasData) {
@@ -142,7 +142,7 @@ function PgxExtractor() {
 
   // Render gene table
   const renderGeneTable = () => {
-    if (!result || !result.pgx_genes || result.pgx_genes.length === 0) {
+    if (!result || !result.document_intelligence || !result.document_intelligence.pgx_genes || result.document_intelligence.pgx_genes.length === 0) {
       return <p>No PGX gene data found in the document.</p>;
     }
 
@@ -158,7 +158,7 @@ function PgxExtractor() {
             </tr>
           </thead>
           <tbody>
-            {result.pgx_genes.map((gene, index) => (
+            {result.document_intelligence.pgx_genes.map((gene, index) => (
               <tr key={index} className={gene.genotype === 'Not found' ? 'not-found' : ''}>
                 <td className="gene-name">{gene.gene}</td>
                 <td className="genotype">{gene.genotype}</td>
@@ -245,11 +245,72 @@ function PgxExtractor() {
           {/* Gene table */}
           {renderGeneTable()}
 
+          {/* LLM Comparison Results */}
+          {result.comparison_available && result.llm_extraction && (
+            <div className="llm-comparison">
+              <h4>LLM Extraction Results (Comparison)</h4>
+              <p><strong>Method:</strong> {result.llm_extraction.extraction_method}</p>
+              
+              {/* LLM Patient Info */}
+              <div className="llm-patient-section">
+                <h5>LLM Patient Information</h5>
+                <table className="patient-table">
+                  <thead>
+                    <tr>
+                      <th>Field</th>
+                      <th>LLM Result</th>
+                      <th>Document Intelligence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(result.llm_extraction.patient_info).map(key => (
+                      <tr key={key}>
+                        <td className="field-name">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+                        <td className="field-value">{result.llm_extraction.patient_info[key] || 'Not found'}</td>
+                        <td className="field-value">{result.document_intelligence.patient_info[key] || 'Not found'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* LLM PGX Genes */}
+              <div className="llm-genes-section">
+                <h5>LLM PGX Gene Results</h5>
+                <table className="gene-table">
+                  <thead>
+                    <tr>
+                      <th>Gene</th>
+                      <th>LLM Genotype</th>
+                      <th>LLM Status</th>
+                      <th>DI Genotype</th>
+                      <th>DI Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.llm_extraction.pgx_genes.map((llmGene, index) => {
+                      const diGene = result.document_intelligence.pgx_genes.find(g => g.gene === llmGene.gene);
+                      return (
+                        <tr key={index}>
+                          <td className="gene-name">{llmGene.gene}</td>
+                          <td className="genotype">{llmGene.genotype}</td>
+                          <td className="metabolizer-status">{llmGene.metabolizer_status}</td>
+                          <td className="genotype">{diGene?.genotype || 'Not found'}</td>
+                          <td className="metabolizer-status">{diGene?.metabolizer_status || 'Not found'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Download as CSV button */}
-          {result.pgx_genes && result.pgx_genes.length > 0 && (
+          {result.document_intelligence && result.document_intelligence.pgx_genes && result.document_intelligence.pgx_genes.length > 0 && (
             <button 
               className="download-csv"
-              onClick={() => downloadAsCSV(result.pgx_genes, result.patient_info, result.meta.original_filename)}
+              onClick={() => downloadAsCSV(result.document_intelligence.pgx_genes, result.document_intelligence.patient_info, result.meta.original_filename)}
             >
               Download as CSV
             </button>
