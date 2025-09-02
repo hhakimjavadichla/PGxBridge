@@ -36,13 +36,14 @@ export async function processDocument(keyword, file) {
 
 /**
  * Extract PGX gene data from a PDF document
+ * @param {string} keyword - Keyword that appears only in PGX table pages
  * @param {File} file - PDF file to process
  * @returns {Promise<Object>} API response with extracted gene data
  */
-export async function extractPgxData(file) {
+export async function extractPgxData(keyword, file) {
   // Build form data
   const formData = new FormData();
-  formData.append('keyword', 'Patient Genotype'); // Default keyword for PGX
+  formData.append('keyword', keyword);
   formData.append('file', file);
 
   // Make API request

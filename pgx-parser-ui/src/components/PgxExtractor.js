@@ -3,6 +3,7 @@ import { extractPgxData } from '../api';
 
 function PgxExtractor() {
   // State management
+  const [keyword, setKeyword] = useState('Patient Genotype');
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -16,6 +17,12 @@ function PgxExtractor() {
     setError(null);
     setResult(null);
 
+    // Validate inputs
+    if (!keyword.trim()) {
+      setError('Please enter a keyword');
+      return;
+    }
+
     if (!file) {
       setError('Please select a PDF file');
       return;
@@ -24,7 +31,7 @@ function PgxExtractor() {
     // Process document
     setLoading(true);
     try {
-      const response = await extractPgxData(file);
+      const response = await extractPgxData(keyword, file);
       setResult(response);
     } catch (err) {
       setError(err.message || 'An error occurred while processing the document');
@@ -79,10 +86,24 @@ function PgxExtractor() {
     <div className="pgx-extractor">
       <h2>PGX Gene Data Extractor</h2>
       <p className="description">
-        Upload a PGX report PDF to extract genotype and metabolizer status for all 13 standard PGX genes.
+        Upload a PGX report PDF and enter a keyword that appears only in the pages containing the gene table.
+        The system will extract genotype and metabolizer status for all 13 standard PGX genes.
       </p>
 
       <form onSubmit={handleSubmit} className="extractor-form">
+        <div className="form-group">
+          <label htmlFor="pgx-keyword">Keyword (appears only in PGX table pages)</label>
+          <input
+            type="text"
+            id="pgx-keyword"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="e.g., Patient Genotype"
+            disabled={loading}
+          />
+          <small>Enter a unique keyword that only appears in the pages containing the PGX gene table</small>
+        </div>
+
         <div className="form-group">
           <label htmlFor="pgx-file">PGX Report PDF</label>
           <input
@@ -94,7 +115,7 @@ function PgxExtractor() {
           />
         </div>
 
-        <button type="submit" disabled={loading || !file}>
+        <button type="submit" disabled={loading || !keyword || !file}>
           {loading ? 'Extracting...' : 'Extract PGX Data'}
         </button>
       </form>
@@ -123,7 +144,8 @@ function PgxExtractor() {
           {result.meta && (
             <div className="summary">
               <strong>Report:</strong> {result.meta.original_filename}<br/>
-              <strong>Pages analyzed:</strong> {result.meta.matched_pages.join(', ')}<br/>
+              <strong>Keyword used:</strong> "{result.meta.keyword}"<br/>
+              <strong>Pages analyzed:</strong> {result.meta.matched_pages.join(', ')} ({result.meta.matched_pages_count} page{result.meta.matched_pages_count !== 1 ? 's' : ''})<br/>
               <strong>Extraction method:</strong> {result.extraction_method}
             </div>
           )}

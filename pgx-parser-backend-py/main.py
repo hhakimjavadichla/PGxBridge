@@ -11,9 +11,10 @@ from fastapi.responses import JSONResponse
 from azure.core.exceptions import AzureError
 from dotenv import load_dotenv
 
-from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail
+from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData
 from pdf_filter import find_pages_with_keyword, build_filtered_pdf
 from azure_client import analyze_layout
+from pgx_parser import extract_pgx_data, format_pgx_table, PGX_GENES
 
 # Load environment variables
 load_dotenv()
@@ -75,7 +76,7 @@ async def process_document(
                 "message": f"File must be PDF. Received: {file.content_type or 'unknown'}"
             }}
         )
-    
+
     # Read file content
     try:
         pdf_bytes = await file.read()
@@ -183,6 +184,79 @@ async def process_document(
             azure_api_version=api_version
         ),
         azure_result=azure_result
+    )
+
+
+@app.post("/api/extract-pgx-data", response_model=PgxExtractResponse)
+async def extract_pgx_data_endpoint(
+    keyword: str = Form(...),
+    file: UploadFile = Form(...)
+) -> PgxExtractResponse:
+    """
+    Extract PGX gene data (genotype and metabolizer status) from a PDF report.
+    
+    This endpoint:
+    1. Searches for the keyword in the PDF to find relevant pages
+    2. Extracts only those pages containing the PGX table
+    3. Sends the filtered pages to Azure Document Intelligence
+    4. Parses the results to extract gene, genotype, and metabolizer status
+    
+    Args:
+        keyword: Keyword that appears only in PGX table pages (e.g., "Patient Genotype")
+        file: Uploaded PDF file
+        
+    Returns:
+        PgxExtractResponse with structured gene data for all 13 PGX genes
+    """
+    # First, process the document to find and extract relevant pages
+    process_result = await process_document(keyword, file)
+    
+    # If no pages matched or no Azure result, return empty gene list
+    if not process_result.azure_result:
+        logger.warning(f"No pages found containing keyword '{keyword}'")
+        return PgxExtractResponse(
+            meta=process_result.meta,
+            pgx_genes=[
+                PgxGeneData(
+                    gene=gene,
+                    genotype="Not found",
+                    metabolizer_status="Not found"
+                )
+                for gene in PGX_GENES
+            ],
+            extraction_method="azure_layout_parsing"
+        )
+    
+    # Log the matched pages for debugging
+    logger.info(f"Extracting PGX data from pages: {process_result.meta.matched_pages}")
+    
+    # Extract PGX data from Azure results
+    pgx_data = extract_pgx_data(process_result.azure_result)
+    
+    # Format as list for response, ensuring all 13 genes are included
+    pgx_genes = []
+    genes_found = 0
+    
+    for gene in PGX_GENES:
+        gene_data = pgx_data.get(gene, {"genotype": None, "metabolizer_status": None})
+        
+        if gene_data["genotype"]:
+            genes_found += 1
+        
+        pgx_genes.append(
+            PgxGeneData(
+                gene=gene,
+                genotype=gene_data["genotype"] or "Not found",
+                metabolizer_status=gene_data["metabolizer_status"] or "Not found"
+            )
+        )
+    
+    logger.info(f"Successfully extracted data for {genes_found}/{len(PGX_GENES)} genes")
+    
+    return PgxExtractResponse(
+        meta=process_result.meta,
+        pgx_genes=pgx_genes,
+        extraction_method="azure_layout_parsing"
     )
 
 
