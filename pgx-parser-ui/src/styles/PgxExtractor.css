@@ -1,0 +1,194 @@
+/* Similarity scoring styles */
+.overall-scores {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.score-summary {
+  display: flex;
+  gap: 30px;
+  margin-top: 10px;
+}
+
+.score-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.score {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.similarity-score {
+  text-align: center;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Color coding for similarity scores */
+.similarity-score.high, .score.high {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.similarity-score.medium, .score.medium {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.similarity-score.low, .score.low {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* LLM comparison section styling */
+.llm-comparison {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 2px solid #007bff;
+}
+
+.llm-patient-section, .llm-genes-section {
+  margin-top: 20px;
+}
+
+.llm-comparison h4 {
+  color: #007bff;
+  margin-bottom: 15px;
+}
+
+.llm-comparison h5 {
+  color: #495057;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 5px;
+}
+
+/* Table enhancements for comparison */
+.llm-comparison table {
+  margin-top: 10px;
+}
+
+.llm-comparison table th {
+  background-color: #e9ecef;
+  font-size: 0.9em;
+}
+
+.llm-comparison table td {
+  vertical-align: middle;
+}
+
+/* Primary LLM Results styling */
+.llm-primary-results {
+  margin: 20px 0;
+  padding: 20px;
+  background-color: #f0f8ff;
+  border-radius: 8px;
+  border: 2px solid #007bff;
+}
+
+.llm-primary-results h4 {
+  color: #007bff;
+  margin-bottom: 15px;
+  font-size: 1.2em;
+}
+
+/* Document Intelligence Results (Secondary) */
+.document-intelligence-results {
+  margin: 20px 0;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.document-intelligence-results h4 {
+  color: #6c757d;
+  margin-bottom: 15px;
+  font-size: 1.1em;
+}
+
+/* Detailed Comparison Section */
+.detailed-comparison {
+  margin: 30px 0;
+  padding: 20px;
+  background-color: #fff8e1;
+  border-radius: 8px;
+  border: 2px solid #ffc107;
+}
+
+.detailed-comparison h4 {
+  color: #856404;
+  margin-bottom: 15px;
+}
+
+.detailed-comparison h5 {
+  color: #495057;
+  margin: 20px 0 10px 0;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 5px;
+}
+
+/* Value highlighting in comparison tables */
+.llm-value {
+  background-color: #e3f2fd;
+  font-weight: 500;
+}
+
+.di-value {
+  background-color: #f5f5f5;
+  font-style: italic;
+}
+
+/* Section spacing */
+.patient-section, .genes-section {
+  margin-top: 20px;
+}
+
+.comparison-patient-section, .comparison-genes-section {
+  margin-top: 25px;
+}
+
+/* Enhanced overall scores */
+.overall-scores h4 {
+  color: #495057;
+  font-size: 1.1em;
+}
+
+/* Responsive design for similarity scores */
+@media (max-width: 768px) {
+  .score-summary {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .similarity-score {
+    font-size: 0.8em;
+    padding: 2px 4px;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .llm-primary-results, .document-intelligence-results, .detailed-comparison {
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  .llm-primary-results h4, .document-intelligence-results h4, .detailed-comparison h4 {
+    font-size: 1em;
+  }
+}

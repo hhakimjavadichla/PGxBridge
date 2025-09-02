@@ -69,9 +69,18 @@ class ExtractionResults(BaseModel):
     extraction_method: str
 
 
+class SimilarityScores(BaseModel):
+    """Similarity scores comparing LLM vs Document Intelligence results."""
+    patient_info_scores: Dict[str, float]
+    pgx_gene_scores: Dict[str, Dict[str, float]]  # gene_name -> {genotype: score, metabolizer_status: score}
+    overall_patient_score: float
+    overall_gene_score: float
+
+
 class PgxExtractResponse(BaseModel):
     """Response schema for PGX data extraction with both methods."""
     meta: Meta
     document_intelligence: ExtractionResults
     llm_extraction: Optional[ExtractionResults] = None
     comparison_available: bool = False
+    similarity_scores: Optional[SimilarityScores] = None

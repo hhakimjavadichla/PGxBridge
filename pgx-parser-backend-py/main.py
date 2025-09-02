@@ -11,12 +11,13 @@ from fastapi.responses import JSONResponse
 from azure.core.exceptions import AzureError
 from dotenv import load_dotenv
 
-from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData, PatientInfo, ExtractionResults
+from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData, PatientInfo, ExtractionResults, SimilarityScores
 from pdf_filter import find_pages_with_keyword, build_filtered_pdf
 from azure_client import analyze_layout
 from pgx_parser import extract_pgx_data, format_pgx_table, PGX_GENES
 from patient_parser import extract_patient_info_from_first_page
 from llm_parser import extract_patient_info_with_llm, extract_pgx_data_with_llm
+from similarity_scorer import compare_patient_info, compare_pgx_genes
 
 # Load environment variables
 load_dotenv()
@@ -343,6 +344,43 @@ async def extract_pgx_data_endpoint(
     except Exception as e:
         logger.error(f"LLM extraction failed: {e}")
         # LLM extraction is optional, continue without it
+    
+    if llm_results:
+        # Calculate similarity scores
+        from similarity_scorer import compare_patient_info, compare_pgx_genes
+        
+        # Convert patient info to dict for comparison
+        di_patient_dict = di_results.patient_info.model_dump()
+        llm_patient_dict = llm_results.patient_info.model_dump()
+        
+        # Calculate similarity scores
+        patient_scores = compare_patient_info(llm_patient_dict, di_patient_dict)
+        gene_scores = compare_pgx_genes(llm_results.pgx_genes, pgx_genes)
+        
+        # Calculate overall scores
+        overall_patient_score = sum(patient_scores.values()) / len(patient_scores) if patient_scores else 0.0
+        
+        # Calculate overall gene score (average of all gene field scores)
+        all_gene_scores = []
+        for gene_data in gene_scores.values():
+            all_gene_scores.extend(gene_data.values())
+        overall_gene_score = sum(all_gene_scores) / len(all_gene_scores) if all_gene_scores else 0.0
+        
+        # Create similarity scores object
+        similarity_scores = SimilarityScores(
+            patient_info_scores=patient_scores,
+            pgx_gene_scores=gene_scores,
+            overall_patient_score=round(overall_patient_score, 3),
+            overall_gene_score=round(overall_gene_score, 3)
+        )
+        
+        return PgxExtractResponse(
+            meta=process_result.meta,
+            document_intelligence=di_results,
+            llm_extraction=llm_results,
+            similarity_scores=similarity_scores,
+            comparison_available=True
+        )
     
     return PgxExtractResponse(
         meta=process_result.meta,

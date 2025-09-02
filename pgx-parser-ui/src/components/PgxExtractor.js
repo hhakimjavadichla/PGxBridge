@@ -171,6 +171,17 @@ function PgxExtractor() {
     );
   };
 
+  // Helper function to get similarity class
+  const getSimilarityClass = (score) => {
+    if (score >= 0.9) {
+      return 'high';
+    } else if (score >= 0.7) {
+      return 'medium';
+    } else {
+      return 'low';
+    }
+  };
+
   return (
     <div className="pgx-extractor">
       <h2>PGX Gene Data Extractor</h2>
@@ -225,41 +236,45 @@ function PgxExtractor() {
       )}
 
       {/* Results display */}
-      {result && !loading && (
+      {result && (
         <div className="results">
-          <h3>Extracted PGX Gene Data</h3>
-          
-          {/* Summary */}
-          {result.meta && (
-            <div className="summary">
-              <strong>Report:</strong> {result.meta.original_filename}<br/>
-              <strong>Keyword used:</strong> "{result.meta.keyword}"<br/>
-              <strong>Pages analyzed:</strong> {result.meta.matched_pages.join(', ')} ({result.meta.matched_pages_count} page{result.meta.matched_pages_count !== 1 ? 's' : ''})<br/>
-              <strong>Extraction method:</strong> {result.extraction_method}
+          <h3>Extraction Results</h3>
+            
+          {/* Overall Similarity Scores */}
+          {result.similarity_scores && (
+            <div className="overall-scores">
+              <h4>Extraction Quality Comparison</h4>
+              <div className="score-summary">
+                <span className="score-item">
+                  <strong>Patient Info Similarity:</strong> 
+                  <span className={`score ${getSimilarityClass(result.similarity_scores.overall_patient_score)}`}>
+                    {(result.similarity_scores.overall_patient_score * 100).toFixed(1)}%
+                  </span>
+                </span>
+                <span className="score-item">
+                  <strong>Gene Data Similarity:</strong> 
+                  <span className={`score ${getSimilarityClass(result.similarity_scores.overall_gene_score)}`}>
+                    {(result.similarity_scores.overall_gene_score * 100).toFixed(1)}%
+                  </span>
+                </span>
+              </div>
             </div>
           )}
 
-          {/* Patient Information */}
-          {renderPatientTable()}
-
-          {/* Gene table */}
-          {renderGeneTable()}
-
-          {/* LLM Comparison Results */}
-          {result.comparison_available && result.llm_extraction && (
-            <div className="llm-comparison">
-              <h4>LLM Extraction Results (Comparison)</h4>
+          {/* LLM Results (Primary) */}
+          {result.llm_extraction && (
+            <div className="llm-primary-results">
+              <h4>🤖 AI-Parsed Results (Primary)</h4>
               <p><strong>Method:</strong> {result.llm_extraction.extraction_method}</p>
-              
-              {/* LLM Patient Info */}
-              <div className="llm-patient-section">
-                <h5>LLM Patient Information</h5>
+                
+              {/* LLM Patient Information */}
+              <div className="patient-section">
+                <h5>Patient Information</h5>
                 <table className="patient-table">
                   <thead>
                     <tr>
                       <th>Field</th>
-                      <th>LLM Result</th>
-                      <th>Document Intelligence</th>
+                      <th>Value</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -267,36 +282,188 @@ function PgxExtractor() {
                       <tr key={key}>
                         <td className="field-name">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
                         <td className="field-value">{result.llm_extraction.patient_info[key] || 'Not found'}</td>
-                        <td className="field-value">{result.document_intelligence.patient_info[key] || 'Not found'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* LLM PGX Genes */}
-              <div className="llm-genes-section">
-                <h5>LLM PGX Gene Results</h5>
+              {/* LLM Gene Results */}
+              <div className="genes-section">
+                <h5>PGX Gene Analysis</h5>
                 <table className="gene-table">
                   <thead>
                     <tr>
                       <th>Gene</th>
-                      <th>LLM Genotype</th>
-                      <th>LLM Status</th>
+                      <th>Genotype</th>
+                      <th>Metabolizer Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.llm_extraction.pgx_genes.map((gene, index) => (
+                      <tr key={index}>
+                        <td className="gene-name">{gene.gene}</td>
+                        <td className="genotype">{gene.genotype}</td>
+                        <td className="metabolizer-status">{gene.metabolizer_status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Document Intelligence Results (Secondary) */}
+          <div className="document-intelligence-results">
+            <h4>📄 Document Intelligence Results (Reference)</h4>
+            <p><strong>Method:</strong> {result.document_intelligence.extraction_method}</p>
+
+            {/* Patient Information with Similarity Scores */}
+            <div className="patient-section">
+              <h5>Patient Information</h5>
+              <table className="patient-table">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Value</th>
+                    {result.similarity_scores && <th>Accuracy vs AI</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(result.document_intelligence.patient_info).map(key => {
+                    const similarityScore = result.similarity_scores?.patient_info_scores?.[key] || 0;
+                    return (
+                      <tr key={key}>
+                        <td className="field-name">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+                        <td className="field-value">{result.document_intelligence.patient_info[key] || 'Not found'}</td>
+                        {result.similarity_scores && (
+                          <td className={`similarity-score ${getSimilarityClass(similarityScore)}`}>
+                            {(similarityScore * 100).toFixed(1)}%
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Gene Results with Similarity Scores */}
+            <div className="genes-section">
+              <h5>PGX Gene Analysis</h5>
+              <table className="gene-table">
+                <thead>
+                  <tr>
+                    <th>Gene</th>
+                    <th>Genotype</th>
+                    <th>Metabolizer Status</th>
+                    {result.similarity_scores && (
+                      <>
+                        <th>Genotype Accuracy</th>
+                        <th>Status Accuracy</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.document_intelligence.pgx_genes.map((gene, index) => {
+                    const geneScores = result.similarity_scores?.pgx_gene_scores?.[gene.gene] || {};
+                    const genotypeScore = geneScores.genotype || 0;
+                    const statusScore = geneScores.metabolizer_status || 0;
+                    
+                    return (
+                      <tr key={index}>
+                        <td className="gene-name">{gene.gene}</td>
+                        <td className="genotype">{gene.genotype}</td>
+                        <td className="metabolizer-status">{gene.metabolizer_status}</td>
+                        {result.similarity_scores && (
+                          <>
+                            <td className={`similarity-score ${getSimilarityClass(genotypeScore)}`}>
+                              {(genotypeScore * 100).toFixed(1)}%
+                            </td>
+                            <td className={`similarity-score ${getSimilarityClass(statusScore)}`}>
+                              {(statusScore * 100).toFixed(1)}%
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Detailed Comparison (if both methods available) */}
+          {result.comparison_available && result.llm_extraction && (
+            <div className="detailed-comparison">
+              <h4>📊 Detailed Method Comparison</h4>
+                
+              {/* Patient Info Comparison */}
+              <div className="comparison-patient-section">
+                <h5>Patient Information Comparison</h5>
+                <table className="patient-table">
+                  <thead>
+                    <tr>
+                      <th>Field</th>
+                      <th>AI Result</th>
+                      <th>Document Intelligence</th>
+                      <th>Match Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(result.llm_extraction.patient_info).map(key => {
+                      const similarityScore = result.similarity_scores?.patient_info_scores?.[key] || 0;
+                      return (
+                        <tr key={key}>
+                          <td className="field-name">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+                          <td className="field-value llm-value">{result.llm_extraction.patient_info[key] || 'Not found'}</td>
+                          <td className="field-value di-value">{result.document_intelligence.patient_info[key] || 'Not found'}</td>
+                          <td className={`similarity-score ${getSimilarityClass(similarityScore)}`}>
+                            {(similarityScore * 100).toFixed(1)}%
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Gene Comparison */}
+              <div className="comparison-genes-section">
+                <h5>PGX Gene Data Comparison</h5>
+                <table className="gene-table">
+                  <thead>
+                    <tr>
+                      <th>Gene</th>
+                      <th>AI Genotype</th>
+                      <th>AI Status</th>
                       <th>DI Genotype</th>
                       <th>DI Status</th>
+                      <th>Genotype Match</th>
+                      <th>Status Match</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.llm_extraction.pgx_genes.map((llmGene, index) => {
                       const diGene = result.document_intelligence.pgx_genes.find(g => g.gene === llmGene.gene);
+                      const geneScores = result.similarity_scores?.pgx_gene_scores?.[llmGene.gene] || {};
+                      const genotypeScore = geneScores.genotype || 0;
+                      const statusScore = geneScores.metabolizer_status || 0;
+                      
                       return (
                         <tr key={index}>
                           <td className="gene-name">{llmGene.gene}</td>
-                          <td className="genotype">{llmGene.genotype}</td>
-                          <td className="metabolizer-status">{llmGene.metabolizer_status}</td>
-                          <td className="genotype">{diGene?.genotype || 'Not found'}</td>
-                          <td className="metabolizer-status">{diGene?.metabolizer_status || 'Not found'}</td>
+                          <td className="genotype llm-value">{llmGene.genotype}</td>
+                          <td className="metabolizer-status llm-value">{llmGene.metabolizer_status}</td>
+                          <td className="genotype di-value">{diGene?.genotype || 'Not found'}</td>
+                          <td className="metabolizer-status di-value">{diGene?.metabolizer_status || 'Not found'}</td>
+                          <td className={`similarity-score ${getSimilarityClass(genotypeScore)}`}>
+                            {(genotypeScore * 100).toFixed(1)}%
+                          </td>
+                          <td className={`similarity-score ${getSimilarityClass(statusScore)}`}>
+                            {(statusScore * 100).toFixed(1)}%
+                          </td>
                         </tr>
                       );
                     })}
@@ -304,16 +471,6 @@ function PgxExtractor() {
                 </table>
               </div>
             </div>
-          )}
-
-          {/* Download as CSV button */}
-          {result.document_intelligence && result.document_intelligence.pgx_genes && result.document_intelligence.pgx_genes.length > 0 && (
-            <button 
-              className="download-csv"
-              onClick={() => downloadAsCSV(result.document_intelligence.pgx_genes, result.document_intelligence.patient_info, result.meta.original_filename)}
-            >
-              Download as CSV
-            </button>
           )}
         </div>
       )}
