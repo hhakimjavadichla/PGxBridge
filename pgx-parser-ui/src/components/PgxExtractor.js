@@ -5,8 +5,12 @@ function PgxExtractor() {
   // State management
   const [keyword, setKeyword] = useState('Patient Genotype');
   const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [batchResults, setBatchResults] = useState([]);
+  const [batchMode, setBatchMode] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState(null);
 
   // Handle form submission
@@ -23,16 +27,21 @@ function PgxExtractor() {
       return;
     }
 
-    if (!file) {
-      setError('Please select a PDF file');
+    if (!file && !files.length) {
+      setError('Please select a PDF file or multiple files for batch processing');
       return;
     }
 
     // Process document
     setLoading(true);
     try {
-      const response = await extractPgxData(keyword, file);
-      setResult(response);
+      if (batchMode) {
+        const responses = await Promise.all(files.map((file) => extractPgxData(keyword, file)));
+        setBatchResults(responses);
+      } else {
+        const response = await extractPgxData(keyword, file);
+        setResult(response);
+      }
     } catch (err) {
       setError(err.message || 'An error occurred while processing the document');
     } finally {
@@ -49,6 +58,18 @@ function PgxExtractor() {
     } else if (selectedFile) {
       setError('Please select a PDF file');
       setFile(null);
+    }
+  };
+
+  const handleBatchFileChange = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    const pdfFiles = selectedFiles.filter((file) => file.type === 'application/pdf');
+    if (pdfFiles.length) {
+      setFiles(pdfFiles);
+      setError(null);
+    } else {
+      setError('Please select one or more PDF files');
+      setFiles([]);
     }
   };
 
@@ -182,6 +203,108 @@ function PgxExtractor() {
     }
   };
 
+  // Helper function to escape CSV values that contain commas, quotes, or newlines
+  const escapeCSVValue = (value) => {
+    if (value == null || value === '') return '';
+    const stringValue = String(value);
+    // If the value contains comma, quote, or newline, wrap it in quotes and escape internal quotes
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  // Helper function to download patient data as CSV
+  const downloadPatientCSV = (patientInfo, filename) => {
+    const baseFilename = filename ? filename.replace('.pdf', '') : 'patient';
+    
+    // Define the exact 13 columns in order
+    const columns = [
+      'patient_name',
+      'date_of_birth', 
+      'test',
+      'report_date',
+      'report_id',
+      'cohort',
+      'sample_type',
+      'sample_collection_date',
+      'sample_received_date',
+      'processed_date',
+      'ordering_clinician',
+      'npi',
+      'indication_for_testing'
+    ];
+    
+    // Create header row
+    const headers = [
+      'Patient Name',
+      'Date Of Birth',
+      'Test',
+      'Report Date', 
+      'Report Id',
+      'Cohort',
+      'Sample Type',
+      'Sample Collection Date',
+      'Sample Received Date',
+      'Processed Date',
+      'Ordering Clinician',
+      'Npi',
+      'Indication For Testing'
+    ];
+    
+    // Create data row with proper CSV escaping
+    const dataRow = columns.map(col => escapeCSVValue(patientInfo[col] || ''));
+    
+    const csvContent = [
+      headers.join(','),
+      dataRow.join(',')
+    ].join('\n');
+    
+    // Download patient CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${baseFilename}_patient.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Helper function to download gene data as CSV
+  const downloadGeneCSV = (genes, filename) => {
+    const baseFilename = filename ? filename.replace('.pdf', '') : 'genes';
+    
+    const csvContent = [
+      'Gene,Genotype,Metabolizer Status',
+      ...genes.map(g => [
+        escapeCSVValue(g.gene),
+        escapeCSVValue(g.genotype),
+        escapeCSVValue(g.metabolizer_status)
+      ].join(','))
+    ].join('\n');
+    
+    // Download gene CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${baseFilename}_genes.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Updated function to download both CSV files
+  function downloadSingleResultAsCSV(result, filename) {
+    if (!result.llm_extraction) return;
+    
+    const patientInfo = result.llm_extraction.patient_info;
+    const genes = result.llm_extraction.pgx_genes;
+    
+    // Download both files
+    downloadPatientCSV(patientInfo, filename);
+    setTimeout(() => downloadGeneCSV(genes, filename), 100); // Small delay to avoid browser blocking
+  }
+
   return (
     <div className="pgx-extractor">
       <h2>PGX Gene Data Extractor</h2>
@@ -211,11 +334,32 @@ function PgxExtractor() {
             id="pgx-file"
             accept=".pdf,application/pdf"
             onChange={handleFileChange}
-            disabled={loading}
+            disabled={loading || batchMode}
           />
+          {batchMode && (
+            <input
+              type="file"
+              id="pgx-files"
+              accept=".pdf,application/pdf"
+              multiple
+              onChange={handleBatchFileChange}
+              disabled={loading}
+            />
+          )}
         </div>
 
-        <button type="submit" disabled={loading || !keyword || !file}>
+        <div className="form-group">
+          <label>
+            <input
+              type="checkbox"
+              checked={batchMode}
+              onChange={(e) => setBatchMode(e.target.checked)}
+            />
+            Batch Processing
+          </label>
+        </div>
+
+        <button type="submit" disabled={loading || !keyword || (!file && !files.length)}>
           {loading ? 'Extracting...' : 'Extract PGX Data'}
         </button>
       </form>
@@ -309,6 +453,7 @@ function PgxExtractor() {
                     ))}
                   </tbody>
                 </table>
+                <button onClick={() => downloadSingleResultAsCSV(result, file.name)}>Download as CSV</button>
               </div>
             </div>
           )}
@@ -476,24 +621,6 @@ function PgxExtractor() {
       )}
     </div>
   );
-}
-
-// Helper function to download data as CSV
-function downloadAsCSV(genes, patientInfo, filename) {
-  const csvContent = [
-    ['Gene', 'Genotype', 'Metabolizer Status'],
-    ...genes.map(g => [g.gene, g.genotype, g.metabolizer_status])
-  ].map(row => row.join(',')).join('\n');
-
-  const patientInfoContent = Object.keys(patientInfo).map(key => `${key}: ${patientInfo[key]}`).join('\n');
-
-  const blob = new Blob([patientInfoContent + '\n\n' + csvContent], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `pgx_genes_${filename.replace('.pdf', '')}.csv`;
-  a.click();
-  window.URL.revokeObjectURL(url);
 }
 
 export default PgxExtractor;
