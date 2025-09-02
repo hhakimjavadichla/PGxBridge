@@ -42,8 +42,29 @@ class PgxGeneData(BaseModel):
     metabolizer_status: str
 
 
+class PatientInfo(BaseModel):
+    """Patient information from first page tables."""
+    # Table 1 fields
+    patient_name: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    test: Optional[str] = None
+    report_date: Optional[str] = None
+    report_id: Optional[str] = None
+    
+    # Table 2 fields
+    cohort: Optional[str] = None
+    sample_type: Optional[str] = None
+    sample_collection_date: Optional[str] = None
+    sample_received_date: Optional[str] = None
+    processed_date: Optional[str] = None
+    ordering_clinician: Optional[str] = None
+    npi: Optional[str] = None
+    indication_for_testing: Optional[str] = None
+
+
 class PgxExtractResponse(BaseModel):
     """Response schema for PGX data extraction."""
     meta: Meta
+    patient_info: PatientInfo
     pgx_genes: List[PgxGeneData]
     extraction_method: str = "azure_layout_parsing"

@@ -52,6 +52,94 @@ function PgxExtractor() {
     }
   };
 
+  // Render patient information table
+  const renderPatientTable = () => {
+    if (!result || !result.patient_info) {
+      return null;
+    }
+
+    const patientData = result.patient_info;
+    const hasData = Object.values(patientData).some(value => value && value !== 'Not found');
+    
+    if (!hasData) {
+      return (
+        <div className="patient-info-container">
+          <h4>Patient Information</h4>
+          <p>No patient information found on the first page.</p>
+        </div>
+      );
+    }
+
+    // Table 1 fields
+    const table1Fields = [
+      { key: 'patient_name', label: 'Patient Name' },
+      { key: 'date_of_birth', label: 'Date of Birth' },
+      { key: 'test', label: 'Test' },
+      { key: 'report_date', label: 'Report Date' },
+      { key: 'report_id', label: 'Report ID' }
+    ];
+
+    // Table 2 fields
+    const table2Fields = [
+      { key: 'cohort', label: 'Cohort' },
+      { key: 'sample_type', label: 'Sample Type' },
+      { key: 'sample_collection_date', label: 'Sample Collection Date' },
+      { key: 'sample_received_date', label: 'Sample Received Date' },
+      { key: 'processed_date', label: 'Processed Date' },
+      { key: 'ordering_clinician', label: 'Ordering Clinician' },
+      { key: 'npi', label: 'NPI' },
+      { key: 'indication_for_testing', label: 'Indication for Testing' }
+    ];
+
+    return (
+      <div className="patient-info-container">
+        <h4>Patient Information</h4>
+        
+        {/* Patient Demographics Table */}
+        <div className="patient-table-section">
+          <h5>Patient Demographics</h5>
+          <table className="patient-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {table1Fields.map(field => (
+                <tr key={field.key} className={!patientData[field.key] ? 'not-found' : ''}>
+                  <td className="field-name">{field.label}</td>
+                  <td className="field-value">{patientData[field.key] || 'Not found'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Sample Information Table */}
+        <div className="patient-table-section">
+          <h5>Sample Information</h5>
+          <table className="patient-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {table2Fields.map(field => (
+                <tr key={field.key} className={!patientData[field.key] ? 'not-found' : ''}>
+                  <td className="field-name">{field.label}</td>
+                  <td className="field-value">{patientData[field.key] || 'Not found'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   // Render gene table
   const renderGeneTable = () => {
     if (!result || !result.pgx_genes || result.pgx_genes.length === 0) {
@@ -60,6 +148,7 @@ function PgxExtractor() {
 
     return (
       <div className="gene-table-container">
+        <h4>PGX Gene Data</h4>
         <table className="gene-table">
           <thead>
             <tr>
@@ -150,6 +239,9 @@ function PgxExtractor() {
             </div>
           )}
 
+          {/* Patient Information */}
+          {renderPatientTable()}
+
           {/* Gene table */}
           {renderGeneTable()}
 
@@ -157,7 +249,7 @@ function PgxExtractor() {
           {result.pgx_genes && result.pgx_genes.length > 0 && (
             <button 
               className="download-csv"
-              onClick={() => downloadAsCSV(result.pgx_genes, result.meta.original_filename)}
+              onClick={() => downloadAsCSV(result.pgx_genes, result.patient_info, result.meta.original_filename)}
             >
               Download as CSV
             </button>
@@ -169,13 +261,15 @@ function PgxExtractor() {
 }
 
 // Helper function to download data as CSV
-function downloadAsCSV(genes, filename) {
+function downloadAsCSV(genes, patientInfo, filename) {
   const csvContent = [
     ['Gene', 'Genotype', 'Metabolizer Status'],
     ...genes.map(g => [g.gene, g.genotype, g.metabolizer_status])
   ].map(row => row.join(',')).join('\n');
 
-  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const patientInfoContent = Object.keys(patientInfo).map(key => `${key}: ${patientInfo[key]}`).join('\n');
+
+  const blob = new Blob([patientInfoContent + '\n\n' + csvContent], { type: 'text/csv' });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

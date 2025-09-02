@@ -11,10 +11,11 @@ from fastapi.responses import JSONResponse
 from azure.core.exceptions import AzureError
 from dotenv import load_dotenv
 
-from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData
+from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData, PatientInfo
 from pdf_filter import find_pages_with_keyword, build_filtered_pdf
 from azure_client import analyze_layout
 from pgx_parser import extract_pgx_data, format_pgx_table, PGX_GENES
+from patient_parser import extract_patient_info_from_first_page
 
 # Load environment variables
 load_dotenv()
@@ -200,22 +201,63 @@ async def extract_pgx_data_endpoint(
     2. Extracts only those pages containing the PGX table
     3. Sends the filtered pages to Azure Document Intelligence
     4. Parses the results to extract gene, genotype, and metabolizer status
+    5. Extracts patient information from the first page
     
     Args:
         keyword: Keyword that appears only in PGX table pages (e.g., "Patient Genotype")
         file: Uploaded PDF file
         
     Returns:
-        PgxExtractResponse with structured gene data for all 13 PGX genes
+        PgxExtractResponse with structured gene data for all 13 PGX genes and patient info
     """
-    # First, process the document to find and extract relevant pages
-    process_result = await process_document(keyword, file)
+    # Read the file once for both patient info and PGX processing
+    try:
+        pdf_bytes = await file.read()
+        logger.info(f"Read PDF file: {len(pdf_bytes)} bytes")
+    except Exception as e:
+        logger.error(f"Error reading uploaded file: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {
+                "type": "file_read_error",
+                "message": "Failed to read uploaded file"
+            }}
+        )
     
-    # If no pages matched or no Azure result, return empty gene list
+    # Extract patient information from the first page using the PDF bytes
+    try:
+        patient_info = extract_patient_info_from_first_page(pdf_bytes)
+        logger.info("Successfully extracted patient information from first page")
+    except Exception as e:
+        logger.error(f"Error extracting patient information: {e}")
+        patient_info = PatientInfo()  # Empty patient info on error
+    
+    # Create a new UploadFile-like object for process_document
+    # Reset file position and create new file object
+    import io
+    file_stream = io.BytesIO(pdf_bytes)
+    
+    # Create a mock UploadFile object
+    class MockUploadFile:
+        def __init__(self, content_bytes, filename, content_type):
+            self.file = io.BytesIO(content_bytes)
+            self.filename = filename
+            self.content_type = content_type
+            
+        async def read(self):
+            return self.file.getvalue()
+    
+    mock_file = MockUploadFile(pdf_bytes, file.filename, file.content_type)
+    
+    # Process the document to find and extract relevant pages
+    process_result = await process_document(keyword, mock_file)
+    
+    # If no pages matched or no Azure result, return empty gene list with patient info
     if not process_result.azure_result:
         logger.warning(f"No pages found containing keyword '{keyword}'")
         return PgxExtractResponse(
             meta=process_result.meta,
+            patient_info=patient_info,
             pgx_genes=[
                 PgxGeneData(
                     gene=gene,
@@ -255,6 +297,7 @@ async def extract_pgx_data_endpoint(
     
     return PgxExtractResponse(
         meta=process_result.meta,
+        patient_info=patient_info,
         pgx_genes=pgx_genes,
         extraction_method="azure_layout_parsing"
     )
