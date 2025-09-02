@@ -196,23 +196,20 @@ async def extract_pgx_data_endpoint(
     file: UploadFile = Form(...)
 ) -> PgxExtractResponse:
     """
-    Extract PGX gene data (genotype and metabolizer status) from a PDF report.
+    Extract PGX gene data (genotype and metabolizer status) from a PDF report using LLM.
     
     This endpoint:
-    1. Searches for the keyword in the PDF to find relevant pages
-    2. Extracts only those pages containing the PGX table
-    3. Sends the filtered pages to Azure Document Intelligence
-    4. Parses the results to extract gene, genotype, and metabolizer status
-    5. Extracts patient information from the first page
+    1. Extracts text content from the PDF
+    2. Uses Azure OpenAI LLM to extract patient info and PGX gene data
     
     Args:
-        keyword: Keyword that appears only in PGX table pages (e.g., "Patient Genotype")
+        keyword: Keyword that appears in PGX table pages (used for filtering content)
         file: Uploaded PDF file
         
     Returns:
-        PgxExtractResponse with structured gene data for all 13 PGX genes and patient info
+        PgxExtractResponse with structured gene data and patient info from LLM
     """
-    # Read the file once for both patient info and PGX processing
+    # Read the PDF file
     try:
         pdf_bytes = await file.read()
         logger.info(f"Read PDF file: {len(pdf_bytes)} bytes")
@@ -226,167 +223,92 @@ async def extract_pgx_data_endpoint(
             }}
         )
     
-    # Extract patient information from the first page using the PDF bytes
+    # Check if Azure OpenAI is configured
+    if not os.environ.get("AZURE_OPENAI_API_KEY") or not os.environ.get("AZURE_OPENAI_ENDPOINT"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "configuration_error",
+                "message": "Azure OpenAI not configured"
+            }}
+        )
+    
+    # Extract text content from PDF
     try:
-        patient_info = extract_patient_info_from_first_page(pdf_bytes)
-        logger.info("Successfully extracted patient information from first page")
+        from pypdf import PdfReader
+        import io
+        pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
+        
+        # Extract first page content for patient info
+        first_page_content = pdf_reader.pages[0].extract_text()
+        
+        # Find pages containing the keyword for PGX data
+        matched_pages = find_pages_with_keyword(pdf_bytes, keyword)
+        logger.info(f"Found {len(matched_pages)} pages with keyword '{keyword}': {matched_pages}")
+        
+        # Extract content from matched pages
+        filtered_content = ""
+        for page_num in matched_pages:
+            # Convert to 0-based index
+            page_index = page_num - 1
+            if page_index < len(pdf_reader.pages):
+                filtered_content += pdf_reader.pages[page_index].extract_text() + "\n"
+        
+        if not filtered_content:
+            logger.warning(f"No content found for keyword '{keyword}'")
+            # Use all pages if no keyword matches
+            filtered_content = "\n".join([page.extract_text() for page in pdf_reader.pages])
+        
     except Exception as e:
-        logger.error(f"Error extracting patient information: {e}")
-        patient_info = PatientInfo()  # Empty patient info on error
-    
-    # Create a new UploadFile-like object for process_document
-    # Reset file position and create new file object
-    import io
-    file_stream = io.BytesIO(pdf_bytes)
-    
-    # Create a mock UploadFile object
-    class MockUploadFile:
-        def __init__(self, content_bytes, filename, content_type):
-            self.file = io.BytesIO(content_bytes)
-            self.filename = filename
-            self.content_type = content_type
-            
-        async def read(self):
-            return self.file.getvalue()
-    
-    mock_file = MockUploadFile(pdf_bytes, file.filename, file.content_type)
-    
-    # Process the document to find and extract relevant pages
-    process_result = await process_document(keyword, mock_file)
-    
-    # If no pages matched or no Azure result, return empty gene list with patient info
-    if not process_result.azure_result:
-        logger.warning(f"No pages found containing keyword '{keyword}'")
-        return PgxExtractResponse(
-            meta=process_result.meta,
-            patient_info=patient_info,
-            pgx_genes=[
-                PgxGeneData(
-                    gene=gene,
-                    genotype="Not found",
-                    metabolizer_status="Not found"
-                )
-                for gene in PGX_GENES
-            ],
-            extraction_method="azure_layout_parsing"
+        logger.error(f"Error extracting PDF content: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "pdf_extraction_error",
+                "message": "Failed to extract text from PDF"
+            }}
         )
     
-    # Log the matched pages for debugging
-    logger.info(f"Extracting PGX data from pages: {process_result.meta.matched_pages}")
-    
-    # Extract PGX data from Azure results
-    pgx_data = extract_pgx_data(process_result.azure_result)
-    
-    # Format as list for response, ensuring all 13 genes are included
-    pgx_genes = []
-    genes_found = 0
-    
-    for gene in PGX_GENES:
-        gene_data = pgx_data.get(gene, {"genotype": None, "metabolizer_status": None})
-        
-        if gene_data["genotype"]:
-            genes_found += 1
-        
-        pgx_genes.append(
-            PgxGeneData(
-                gene=gene,
-                genotype=gene_data["genotype"] or "Not found",
-                metabolizer_status=gene_data["metabolizer_status"] or "Not found"
-            )
-        )
-    
-    logger.info(f"Successfully extracted data for {genes_found}/{len(PGX_GENES)} genes")
-    
-    # Create Document Intelligence results
-    di_results = ExtractionResults(
-        patient_info=patient_info,
-        pgx_genes=pgx_genes,
-        extraction_method="azure_document_intelligence"
-    )
-    
-    # LLM extraction (parallel process) - make it optional for now
-    llm_results = None
+    # LLM extraction
     try:
-        # Only attempt LLM extraction if environment variables are set
-        if os.environ.get("AZURE_OPENAI_API_KEY") and os.environ.get("AZURE_OPENAI_ENDPOINT"):
-            logger.info("Starting LLM extraction...")
-            
-            # Extract first page content for patient info
-            from pypdf import PdfReader
-            import io
-            pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
-            first_page_content = pdf_reader.pages[0].extract_text()
-            
-            # Extract filtered content for PGX data (from matched pages)
-            filtered_content = ""
-            for page_num in process_result.meta.matched_pages:
-                # Convert to 0-based index
-                page_index = page_num - 1
-                if page_index < len(pdf_reader.pages):
-                    filtered_content += pdf_reader.pages[page_index].extract_text() + "\n"
-            
-            # Extract patient info with LLM
-            llm_patient_info = extract_patient_info_with_llm(first_page_content)
-            logger.info("Successfully extracted patient information (LLM)")
-            
-            # Extract PGX data with LLM
-            llm_pgx_genes = extract_pgx_data_with_llm(filtered_content)
-            logger.info("Successfully extracted PGX data (LLM)")
-            
-            llm_results = ExtractionResults(
-                patient_info=llm_patient_info,
-                pgx_genes=llm_pgx_genes,
-                extraction_method="azure_openai_llm"
-            )
-        else:
-            logger.info("Azure OpenAI not configured, skipping LLM extraction")
+        logger.info("Starting LLM extraction...")
+        
+        # Extract patient info with LLM
+        llm_patient_info = extract_patient_info_with_llm(first_page_content)
+        logger.info("Successfully extracted patient information (LLM)")
+        
+        # Extract PGX data with LLM
+        llm_pgx_genes = extract_pgx_data_with_llm(filtered_content)
+        logger.info("Successfully extracted PGX data (LLM)")
+        
+        llm_results = ExtractionResults(
+            patient_info=llm_patient_info,
+            pgx_genes=llm_pgx_genes,
+            extraction_method="azure_openai_llm"
+        )
         
     except Exception as e:
         logger.error(f"LLM extraction failed: {e}")
-        # LLM extraction is optional, continue without it
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "llm_extraction_error",
+                "message": f"Failed to extract data with LLM: {str(e)}"
+            }}
+        )
     
-    if llm_results:
-        # Calculate similarity scores
-        from similarity_scorer import compare_patient_info, compare_pgx_genes
-        
-        # Convert patient info to dict for comparison
-        di_patient_dict = di_results.patient_info.model_dump()
-        llm_patient_dict = llm_results.patient_info.model_dump()
-        
-        # Calculate similarity scores
-        patient_scores = compare_patient_info(llm_patient_dict, di_patient_dict)
-        gene_scores = compare_pgx_genes(llm_results.pgx_genes, pgx_genes)
-        
-        # Calculate overall scores
-        overall_patient_score = sum(patient_scores.values()) / len(patient_scores) if patient_scores else 0.0
-        
-        # Calculate overall gene score (average of all gene field scores)
-        all_gene_scores = []
-        for gene_data in gene_scores.values():
-            all_gene_scores.extend(gene_data.values())
-        overall_gene_score = sum(all_gene_scores) / len(all_gene_scores) if all_gene_scores else 0.0
-        
-        # Create similarity scores object
-        similarity_scores = SimilarityScores(
-            patient_info_scores=patient_scores,
-            pgx_gene_scores=gene_scores,
-            overall_patient_score=round(overall_patient_score, 3),
-            overall_gene_score=round(overall_gene_score, 3)
-        )
-        
-        return PgxExtractResponse(
-            meta=process_result.meta,
-            document_intelligence=di_results,
-            llm_extraction=llm_results,
-            similarity_scores=similarity_scores,
-            comparison_available=True
-        )
+    # Create meta information
+    meta = Meta(
+        original_filename=file.filename,
+        keyword=keyword,
+        matched_pages=matched_pages,
+        matched_pages_count=len(matched_pages)
+    )
     
     return PgxExtractResponse(
-        meta=process_result.meta,
-        document_intelligence=di_results,
+        meta=meta,
         llm_extraction=llm_results,
-        comparison_available=llm_results is not None
+        comparison_available=False
     )
 
 

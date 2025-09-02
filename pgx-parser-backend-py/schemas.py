@@ -78,9 +78,9 @@ class SimilarityScores(BaseModel):
 
 
 class PgxExtractResponse(BaseModel):
-    """Response schema for PGX data extraction with both methods."""
+    """Response schema for PGX data extraction with LLM method."""
     meta: Meta
-    document_intelligence: ExtractionResults
+    document_intelligence: Optional[ExtractionResults] = None
     llm_extraction: Optional[ExtractionResults] = None
     comparison_available: bool = False
     similarity_scores: Optional[SimilarityScores] = None
