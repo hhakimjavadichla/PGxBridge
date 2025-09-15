@@ -9,6 +9,8 @@ A web application that filters PDF pages by keyword and analyzes them using Azur
 - Azure AI Document Intelligence resource with API key
 
 ## Quick Start
+# these conda environmet are tested:
+# pgxbridge_env
 
 ### Backend Setup
 
