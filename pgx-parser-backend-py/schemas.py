@@ -40,6 +40,15 @@ class PgxGeneData(BaseModel):
     gene: str
     genotype: str
     metabolizer_status: str
+    # CPIC annotation fields
+    cpic_phenotype: Optional[str] = None  # Simplified phenotype (e.g., "Normal Metabolizer")
+    cpic_phenotype_full: Optional[str] = None  # Full CPIC format (e.g., "CYP2B6 Normal Metabolizer")
+    cpic_phenotype_category: Optional[str] = None
+    cpic_activity_score: Optional[str] = None
+    cpic_ehr_priority: Optional[str] = None
+    cpic_is_high_risk: Optional[bool] = False
+    cpic_match_status: Optional[str] = None
+    cpic_validation_message: Optional[str] = None
 
 
 class PatientInfo(BaseModel):
@@ -77,6 +86,17 @@ class SimilarityScores(BaseModel):
     overall_gene_score: float
 
 
+class CPICSummary(BaseModel):
+    """Summary statistics for CPIC annotations."""
+    total_genes: int
+    cpic_found: int
+    cpic_not_found: int
+    high_risk_count: int
+    exact_matches: int
+    mismatches: int
+    match_rate: float
+
+
 class PgxExtractResponse(BaseModel):
     """Response schema for PGX data extraction with LLM method."""
     meta: Meta
@@ -84,3 +104,4 @@ class PgxExtractResponse(BaseModel):
     llm_extraction: Optional[ExtractionResults] = None
     comparison_available: bool = False
     similarity_scores: Optional[SimilarityScores] = None
+    cpic_summary: Optional[CPICSummary] = None

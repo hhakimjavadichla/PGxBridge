@@ -11,13 +11,14 @@ from fastapi.responses import JSONResponse
 from azure.core.exceptions import AzureError
 from dotenv import load_dotenv
 
-from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData, PatientInfo, ExtractionResults, SimilarityScores
+from schemas import ProcessResponse, Meta, ErrorResponse, ErrorDetail, PgxExtractResponse, PgxGeneData, PatientInfo, ExtractionResults, SimilarityScores, CPICSummary
 from pdf_filter import find_pages_with_keyword, build_filtered_pdf
 from azure_client import analyze_layout
 from pgx_parser import extract_pgx_data, format_pgx_table, PGX_GENES
 from patient_parser import extract_patient_info_from_first_page
 from llm_parser import extract_patient_info_with_llm, extract_pgx_data_with_llm
 from similarity_scorer import compare_patient_info, compare_pgx_genes
+from cpic_annotator import get_cpic_annotator
 
 # Load environment variables
 load_dotenv()
@@ -281,9 +282,35 @@ async def extract_pgx_data_endpoint(
         llm_pgx_genes = extract_pgx_data_with_llm(filtered_content)
         logger.info("Successfully extracted PGX data (LLM)")
         
+        # Annotate with CPIC data
+        logger.info("Annotating PGX data with CPIC standards...")
+        cpic_annotator = get_cpic_annotator()
+        
+        # Convert PgxGeneData objects to dicts for annotation
+        genes_dict = [
+            {
+                'gene': g.gene,
+                'genotype': g.genotype,
+                'metabolizer_status': g.metabolizer_status
+            }
+            for g in llm_pgx_genes
+        ]
+        
+        # Annotate genes
+        annotated_genes_dict = cpic_annotator.annotate_genes(genes_dict)
+        
+        # Convert back to PgxGeneData objects with CPIC fields
+        annotated_genes = [PgxGeneData(**g) for g in annotated_genes_dict]
+        
+        # Get summary statistics
+        cpic_stats = cpic_annotator.get_summary_statistics(annotated_genes_dict)
+        cpic_summary = CPICSummary(**cpic_stats)
+        
+        logger.info(f"CPIC annotation complete: {cpic_stats['cpic_found']}/{cpic_stats['total_genes']} genes found, {cpic_stats['high_risk_count']} high-risk")
+        
         llm_results = ExtractionResults(
             patient_info=llm_patient_info,
-            pgx_genes=llm_pgx_genes,
+            pgx_genes=annotated_genes,
             extraction_method="azure_openai_llm"
         )
         
@@ -308,7 +335,8 @@ async def extract_pgx_data_endpoint(
     return PgxExtractResponse(
         meta=meta,
         llm_extraction=llm_results,
-        comparison_available=False
+        comparison_available=False,
+        cpic_summary=cpic_summary
     )
 
 

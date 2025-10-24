@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import PgxProcessor from './components/PgxProcessor';
 import PgxExtractor from './components/PgxExtractor';
+import FolderBatchProcessor from './components/FolderBatchProcessor';
 
 function App() {
   const [activeTab, setActiveTab] = useState('processor');
@@ -25,9 +26,17 @@ function App() {
           >
             PGX Gene Extractor
           </button>
+          <button 
+            className={`tab ${activeTab === 'folder-batch' ? 'active' : ''}`}
+            onClick={() => setActiveTab('folder-batch')}
+          >
+            Folder Batch Processor
+          </button>
         </div>
         <div className="tab-content">
-          {activeTab === 'processor' ? <PgxProcessor /> : <PgxExtractor />}
+          {activeTab === 'processor' && <PgxProcessor />}
+          {activeTab === 'extractor' && <PgxExtractor />}
+          {activeTab === 'folder-batch' && <FolderBatchProcessor />}
         </div>
       </main>
     </div>
