@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { extractPgxData } from '../api';
+import { extractPgxData, generatePatientReport, generateEhrReport } from '../api';
 
 function PgxExtractor() {
   // State management
@@ -12,6 +12,8 @@ function PgxExtractor() {
   const [batchMode, setBatchMode] = useState(false);
   const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [generatingEhrReport, setGeneratingEhrReport] = useState(false);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -156,11 +158,19 @@ function PgxExtractor() {
     const baseFilename = filename ? filename.replace('.pdf', '') : 'genes';
     
     const csvContent = [
-      'Gene,Genotype,Metabolizer Status',
+      'Gene,Genotype,PDF Interpretation,CPIC Phenotype,CPIC Phenotype (Full),CPIC Category,CPIC Activity Score,CPIC EHR Priority,CPIC High Risk,CPIC Match Status,CPIC Validation Message',
       ...genes.map(g => [
         escapeCSVValue(g.gene),
         escapeCSVValue(g.genotype),
-        escapeCSVValue(g.metabolizer_status)
+        escapeCSVValue(g.metabolizer_status),
+        escapeCSVValue(g.cpic_phenotype || ''),
+        escapeCSVValue(g.cpic_phenotype_full || ''),
+        escapeCSVValue(g.cpic_phenotype_category || ''),
+        escapeCSVValue(g.cpic_activity_score || ''),
+        escapeCSVValue(g.cpic_ehr_priority || ''),
+        escapeCSVValue(g.cpic_is_high_risk ? 'Yes' : 'No'),
+        escapeCSVValue(g.cpic_match_status || ''),
+        escapeCSVValue(g.cpic_validation_message || '')
       ].join(','))
     ].join('\n');
     
@@ -292,6 +302,31 @@ function PgxExtractor() {
                 </table>
               </div>
 
+              {/* CPIC Summary Statistics */}
+              {result.cpic_summary && (
+                <div className="cpic-summary-section">
+                  <h5>📊 CPIC Validation Summary</h5>
+                  <div className="cpic-stats">
+                    <div className="stat-item">
+                      <span className="stat-label">CPIC Coverage:</span>
+                      <span className="stat-value">{result.cpic_summary.cpic_found}/{result.cpic_summary.total_genes}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">High-Risk Variants:</span>
+                      <span className="stat-value high-risk">{result.cpic_summary.high_risk_count}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">Match Rate:</span>
+                      <span className="stat-value">{result.cpic_summary.match_rate}%</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">Exact Matches:</span>
+                      <span className="stat-value">{result.cpic_summary.exact_matches}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* LLM Gene Results */}
               <div className="genes-section">
                 <h5>PGX Gene Analysis</h5>
@@ -300,22 +335,44 @@ function PgxExtractor() {
                     <tr>
                       <th>Gene</th>
                       <th>Genotype</th>
-                      <th>Metabolizer Status</th>
+                      <th>PDF Interpretation</th>
+                      <th>CPIC Phenotype</th>
+                      <th>CPIC Category</th>
+                      <th>Priority</th>
+                      <th>Match</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.llm_extraction.pgx_genes.map((gene, index) => (
-                      <tr key={index}>
+                      <tr key={index} className={gene.cpic_is_high_risk ? 'high-risk-row' : ''}>
                         <td className="gene-name">{gene.gene}</td>
                         <td className="genotype">{gene.genotype}</td>
                         <td className="metabolizer-status">{gene.metabolizer_status}</td>
+                        <td className="cpic-phenotype">
+                          {gene.cpic_phenotype || <span className="not-found">Not found</span>}
+                        </td>
+                        <td className="cpic-category">
+                          {gene.cpic_phenotype_category || '-'}
+                        </td>
+                        <td className={`cpic-priority ${gene.cpic_is_high_risk ? 'high-risk' : 'normal-risk'}`}>
+                          {gene.cpic_is_high_risk && '⚠️ '}
+                          {gene.cpic_ehr_priority ? 
+                            (gene.cpic_ehr_priority.split('/')[0]) : '-'}
+                        </td>
+                        <td className="cpic-match">
+                          {gene.cpic_match_status === 'exact_match' && <span className="match-exact">✓ Exact</span>}
+                          {gene.cpic_match_status === 'category_match' && <span className="match-category">✓ Category</span>}
+                          {gene.cpic_match_status === 'equivalent_match' && <span className="match-equivalent">✓ Equiv</span>}
+                          {gene.cpic_match_status === 'mismatch' && <span className="match-mismatch">✗ Mismatch</span>}
+                          {gene.cpic_match_status === 'not_found' && <span className="match-notfound">ℹ️ N/A</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
                 
-              {/* Download CSV Button */}
+              {/* Download Buttons */}
               <div className="download-section">
                 <button 
                   className="download-csv-btn"
@@ -323,6 +380,56 @@ function PgxExtractor() {
                   disabled={!result.llm_extraction}
                 >
                   📊 Download CSV Files (Patient + Genes)
+                </button>
+                <button 
+                  className="generate-report-btn"
+                  onClick={async () => {
+                    if (!file) return;
+                    setGeneratingReport(true);
+                    try {
+                      const blob = await generatePatientReport(keyword, file);
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      const patientName = result.llm_extraction?.patient_info?.patient_name || 'Patient';
+                      const safeName = patientName.replace(/[^a-zA-Z0-9\s-_]/g, '').replace(/\s+/g, '_');
+                      a.download = `PGx_Report_${safeName}.docx`;
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError('Failed to generate report: ' + err.message);
+                    } finally {
+                      setGeneratingReport(false);
+                    }
+                  }}
+                  disabled={!result.llm_extraction || !file || generatingReport}
+                >
+                  {generatingReport ? '⏳ Generating...' : '📄 Generate Patient Report (Word)'}
+                </button>
+                <button 
+                  className="generate-ehr-btn"
+                  onClick={async () => {
+                    if (!file) return;
+                    setGeneratingEhrReport(true);
+                    try {
+                      const blob = await generateEhrReport(keyword, file);
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      const patientName = result.llm_extraction?.patient_info?.patient_name || 'Patient';
+                      const safeName = patientName.replace(/[^a-zA-Z0-9\s-_]/g, '').replace(/\s+/g, '_');
+                      a.download = `PGx_EHR_Note_${safeName}.docx`;
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError('Failed to generate EHR report: ' + err.message);
+                    } finally {
+                      setGeneratingEhrReport(false);
+                    }
+                  }}
+                  disabled={!result.llm_extraction || !file || generatingEhrReport}
+                >
+                  {generatingEhrReport ? '⏳ Generating...' : '🏥 Generate EHR Note (Word)'}
                 </button>
               </div>
             </div>

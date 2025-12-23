@@ -1,0 +1,10 @@
+﻿HLA Diplotype,Activity Score,Coded Diplotype/Phenotype Summary,EHR Priority Notation
+HLA-A*31:01 negative,n/a,HLA-A*31:01 Normal Risk,Normal/Routine/Low Risk
+HLA-A*31:01 positive,n/a,HLA-A*31:01 Increased Risk,Abnormal/Priority/High Risk
+HLA-B*15:02 negative,n/a,HLA-B*15:02 Normal Risk,Normal/Routine/Low Risk
+HLA-B*15:02 positive,n/a,HLA-B*15:02 Increased Risk,Abnormal/Priority/High Risk
+HLA-B*57:01 negative,n/a,HLA-B*57:01 Normal Risk,Normal/Routine/Low Risk
+HLA-B*57:01 positive,n/a,HLA-B*57:01 Increased Risk,Abnormal/Priority/High Risk
+HLA-B*58:01 negative,n/a,HLA-B*58:01 Normal Risk,Normal/Routine/Low Risk
+HLA-B*58:01 positive,n/a,HLA-B*58:01 Increased Risk,Abnormal/Priority/High Risk
+,,,

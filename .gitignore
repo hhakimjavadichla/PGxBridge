@@ -61,3 +61,30 @@ logs/
 
 # OS
 Thumbs.db
+
+# =============================================
+# PATIENT DATA - DO NOT TRACK
+# =============================================
+# Output directory (contains patient reports, CSVs with PHI)
+out/
+
+# PDF files (may contain patient data)
+*.pdf
+
+# Generated Word documents with patient data
+PGx_Report_*.docx
+PGx_EHR_Note_*.docx
+
+# CSV files with patient data (outside annotations folder)
+*_patient.csv
+*_genes.csv
+
+# Any files with patient names or identifiers
+*patient*.csv
+*Patient*.csv
+
+# =============================================
+# KEEP THESE (annotation data, not patient data)
+# =============================================
+# annotations/cpic_diplotype_phenotype_integrated.csv - CPIC reference data (OK to track)
+# templates/*.docx - Word templates without patient data (OK to track)

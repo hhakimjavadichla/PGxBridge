@@ -390,3 +390,206 @@
   background-color: #6c757d;
   cursor: not-allowed;
 }
+
+.generate-report-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  margin-left: 10px;
+}
+
+.generate-report-btn:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.generate-report-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.generate-ehr-btn {
+  background-color: #6f42c1;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.generate-ehr-btn:hover:not(:disabled) {
+  background-color: #5a32a3;
+}
+
+.generate-ehr-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.download-section {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+/* CPIC Annotation Styles */
+.cpic-summary-section {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f0f8ff;
+  border-radius: 8px;
+  border: 1px solid #b8daff;
+}
+
+.cpic-summary-section h5 {
+  margin-top: 0;
+  color: #004085;
+}
+
+.cpic-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.stat-label {
+  font-weight: 500;
+  color: #495057;
+}
+
+.stat-value {
+  font-weight: bold;
+  font-size: 1.1em;
+  color: #007bff;
+}
+
+.stat-value.high-risk {
+  color: #dc3545;
+}
+
+/* Gene table CPIC columns */
+.gene-table {
+  font-size: 0.9em;
+}
+
+.gene-table th {
+  white-space: nowrap;
+  font-size: 0.85em;
+}
+
+.high-risk-row {
+  background-color: #fff3cd;
+}
+
+.high-risk-row:hover {
+  background-color: #ffe8a1;
+}
+
+.cpic-phenotype {
+  max-width: 250px;
+  font-size: 0.85em;
+}
+
+.cpic-category {
+  font-weight: 500;
+  text-align: center;
+}
+
+.cpic-priority {
+  text-align: center;
+  font-weight: 500;
+}
+
+.cpic-priority.high-risk {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.cpic-priority.normal-risk {
+  color: #28a745;
+}
+
+.cpic-match {
+  text-align: center;
+  font-size: 0.85em;
+}
+
+.match-exact {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.match-category {
+  color: #17a2b8;
+  font-weight: 500;
+}
+
+.match-equivalent {
+  color: #20c997;
+  font-weight: 500;
+}
+
+.match-mismatch {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.match-notfound {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.not-found {
+  color: #6c757d;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+/* Responsive adjustments for CPIC columns */
+@media (max-width: 1200px) {
+  .gene-table {
+    font-size: 0.8em;
+  }
+  
+  .cpic-phenotype {
+    max-width: 180px;
+    font-size: 0.75em;
+  }
+  
+  .cpic-stats {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .gene-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  .cpic-stats {
+    grid-template-columns: 1fr;
+  }
+}

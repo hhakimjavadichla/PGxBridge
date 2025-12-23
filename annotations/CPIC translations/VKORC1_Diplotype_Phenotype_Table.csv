@@ -1,0 +1,4 @@
+﻿VKORC1 Diplotype,Activity Score,Coded Diplotype/Phenotype Summary,EHR Priority Notation
+Reference/Reference,n/a,VKORC1 Normal Activity,Normal/Routine/Low Risk
+Reference/rs9923231 (-1639G>A),n/a,VKORC1 Reduced Activity,Abnormal/Priority/High Risk
+rs9923231 (-1639G>A)/rs9923231 (-1639G>A),n/a,VKORC1 Low Activity,Abnormal/Priority/High Risk

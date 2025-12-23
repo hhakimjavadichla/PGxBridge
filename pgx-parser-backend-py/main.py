@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any
 from fastapi import FastAPI, UploadFile, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from azure.core.exceptions import AzureError
 from dotenv import load_dotenv
 
@@ -19,6 +19,7 @@ from patient_parser import extract_patient_info_from_first_page
 from llm_parser import extract_patient_info_with_llm, extract_pgx_data_with_llm
 from similarity_scorer import compare_patient_info, compare_pgx_genes
 from cpic_annotator import get_cpic_annotator
+from report_generator import generate_patient_report, generate_patient_report_filename, generate_ehr_report, generate_ehr_report_filename
 
 # Load environment variables
 load_dotenv()
@@ -338,6 +339,319 @@ async def extract_pgx_data_endpoint(
         comparison_available=False,
         cpic_summary=cpic_summary
     )
+
+
+@app.post("/api/generate-patient-report")
+async def generate_patient_report_endpoint(
+    keyword: str = Form(...),
+    file: UploadFile = Form(...)
+) -> Response:
+    """
+    Generate a patient-facing Word document report from a PDF.
+    
+    This endpoint:
+    1. Extracts patient info and PGX gene data from the PDF
+    2. Generates a Word document using the patient report template
+    3. Returns the Word document as a downloadable file
+    
+    Table 1: High-risk variants + all CYP2C19 results
+    Table 2: All PGX results
+    
+    Args:
+        keyword: Keyword that appears in PGX table pages
+        file: Uploaded PDF file
+        
+    Returns:
+        Word document (.docx) file
+    """
+    # Read the PDF file
+    try:
+        pdf_bytes = await file.read()
+        logger.info(f"Read PDF file for report generation: {len(pdf_bytes)} bytes")
+    except Exception as e:
+        logger.error(f"Error reading uploaded file: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {
+                "type": "file_read_error",
+                "message": "Failed to read uploaded file"
+            }}
+        )
+    
+    # Check if Azure OpenAI is configured
+    if not os.environ.get("AZURE_OPENAI_API_KEY") or not os.environ.get("AZURE_OPENAI_ENDPOINT"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "configuration_error",
+                "message": "Azure OpenAI not configured"
+            }}
+        )
+    
+    # Extract text content from PDF
+    try:
+        from pypdf import PdfReader
+        import io
+        pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
+        
+        # Extract first page content for patient info
+        first_page_content = pdf_reader.pages[0].extract_text()
+        
+        # Find pages containing the keyword for PGX data
+        matched_pages = find_pages_with_keyword(pdf_bytes, keyword)
+        logger.info(f"Found {len(matched_pages)} pages with keyword '{keyword}'")
+        
+        # Extract content from matched pages
+        filtered_content = ""
+        for page_num in matched_pages:
+            page_index = page_num - 1
+            if page_index < len(pdf_reader.pages):
+                filtered_content += pdf_reader.pages[page_index].extract_text() + "\n"
+        
+        if not filtered_content:
+            filtered_content = "\n".join([page.extract_text() for page in pdf_reader.pages])
+        
+    except Exception as e:
+        logger.error(f"Error extracting PDF content: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "pdf_extraction_error",
+                "message": "Failed to extract text from PDF"
+            }}
+        )
+    
+    # LLM extraction
+    try:
+        logger.info("Extracting data with LLM for report generation...")
+        
+        # Extract patient info with LLM
+        llm_patient_info = extract_patient_info_with_llm(first_page_content)
+        
+        # Extract PGX data with LLM
+        llm_pgx_genes = extract_pgx_data_with_llm(filtered_content)
+        
+        # Annotate with CPIC data
+        cpic_annotator = get_cpic_annotator()
+        genes_dict = [
+            {
+                'gene': g.gene,
+                'genotype': g.genotype,
+                'metabolizer_status': g.metabolizer_status
+            }
+            for g in llm_pgx_genes
+        ]
+        annotated_genes_dict = cpic_annotator.annotate_genes(genes_dict)
+        
+        logger.info(f"Extracted {len(annotated_genes_dict)} genes with CPIC annotations")
+        
+    except Exception as e:
+        logger.error(f"LLM extraction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "llm_extraction_error",
+                "message": f"Failed to extract data with LLM: {str(e)}"
+            }}
+        )
+    
+    # Generate Word document
+    try:
+        patient_info_dict = {
+            'patient_name': llm_patient_info.patient_name,
+            'date_of_birth': llm_patient_info.date_of_birth,
+            'report_date': llm_patient_info.report_date,
+            'report_id': llm_patient_info.report_id,
+        }
+        
+        doc_bytes = generate_patient_report(patient_info_dict, annotated_genes_dict)
+        filename = generate_patient_report_filename(patient_info_dict)
+        
+        logger.info(f"Generated patient report: {filename}")
+        
+        return Response(
+            content=doc_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+        
+    except FileNotFoundError as e:
+        logger.error(f"Template not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "template_not_found",
+                "message": str(e)
+            }}
+        )
+    except Exception as e:
+        logger.error(f"Error generating report: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "report_generation_error",
+                "message": f"Failed to generate Word document: {str(e)}"
+            }}
+        )
+
+
+@app.post("/api/generate-ehr-report")
+async def generate_ehr_report_endpoint(
+    keyword: str = Form(...),
+    file: UploadFile = Form(...)
+) -> Response:
+    """
+    Generate an EHR-facing Word document report from a PDF.
+    
+    This endpoint:
+    1. Extracts patient info and PGX gene data from the PDF
+    2. Generates a Word document using the EHR note template
+    3. Returns the Word document as a downloadable file
+    
+    Table 1: High-risk variants + all CYP2C19 results (Priority)
+    Table 2: Normal/routine/low risk results (Standard)
+    Table 3: Unknown/indeterminate priority results (Unknown)
+    
+    Args:
+        keyword: Keyword that appears in PGX table pages
+        file: Uploaded PDF file
+        
+    Returns:
+        Word document (.docx) file
+    """
+    # Read the PDF file
+    try:
+        pdf_bytes = await file.read()
+        logger.info(f"Read PDF file for EHR report generation: {len(pdf_bytes)} bytes")
+    except Exception as e:
+        logger.error(f"Error reading uploaded file: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {
+                "type": "file_read_error",
+                "message": "Failed to read uploaded file"
+            }}
+        )
+    
+    # Check if Azure OpenAI is configured
+    if not os.environ.get("AZURE_OPENAI_API_KEY") or not os.environ.get("AZURE_OPENAI_ENDPOINT"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "configuration_error",
+                "message": "Azure OpenAI not configured"
+            }}
+        )
+    
+    # Extract text content from PDF
+    try:
+        from pypdf import PdfReader
+        import io
+        pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
+        
+        # Extract first page content for patient info
+        first_page_content = pdf_reader.pages[0].extract_text()
+        
+        # Find pages containing the keyword for PGX data
+        matched_pages = find_pages_with_keyword(pdf_bytes, keyword)
+        logger.info(f"Found {len(matched_pages)} pages with keyword '{keyword}'")
+        
+        # Extract content from matched pages
+        filtered_content = ""
+        for page_num in matched_pages:
+            page_index = page_num - 1
+            if page_index < len(pdf_reader.pages):
+                filtered_content += pdf_reader.pages[page_index].extract_text() + "\n"
+        
+        if not filtered_content:
+            filtered_content = "\n".join([page.extract_text() for page in pdf_reader.pages])
+        
+    except Exception as e:
+        logger.error(f"Error extracting PDF content: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "pdf_extraction_error",
+                "message": "Failed to extract text from PDF"
+            }}
+        )
+    
+    # LLM extraction
+    try:
+        logger.info("Extracting data with LLM for EHR report generation...")
+        
+        # Extract patient info with LLM
+        llm_patient_info = extract_patient_info_with_llm(first_page_content)
+        
+        # Extract PGX data with LLM
+        llm_pgx_genes = extract_pgx_data_with_llm(filtered_content)
+        
+        # Annotate with CPIC data
+        cpic_annotator = get_cpic_annotator()
+        genes_dict = [
+            {
+                'gene': g.gene,
+                'genotype': g.genotype,
+                'metabolizer_status': g.metabolizer_status
+            }
+            for g in llm_pgx_genes
+        ]
+        annotated_genes_dict = cpic_annotator.annotate_genes(genes_dict)
+        
+        logger.info(f"Extracted {len(annotated_genes_dict)} genes with CPIC annotations for EHR report")
+        
+    except Exception as e:
+        logger.error(f"LLM extraction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "llm_extraction_error",
+                "message": f"Failed to extract data with LLM: {str(e)}"
+            }}
+        )
+    
+    # Generate EHR Word document
+    try:
+        patient_info_dict = {
+            'patient_name': llm_patient_info.patient_name,
+            'date_of_birth': llm_patient_info.date_of_birth,
+            'report_date': llm_patient_info.report_date,
+            'report_id': llm_patient_info.report_id,
+        }
+        
+        doc_bytes = generate_ehr_report(patient_info_dict, annotated_genes_dict)
+        filename = generate_ehr_report_filename(patient_info_dict)
+        
+        logger.info(f"Generated EHR report: {filename}")
+        
+        return Response(
+            content=doc_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+        
+    except FileNotFoundError as e:
+        logger.error(f"EHR template not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "template_not_found",
+                "message": str(e)
+            }}
+        )
+    except Exception as e:
+        logger.error(f"Error generating EHR report: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {
+                "type": "report_generation_error",
+                "message": f"Failed to generate EHR Word document: {str(e)}"
+            }}
+        )
 
 
 # Custom exception handler for better error responses

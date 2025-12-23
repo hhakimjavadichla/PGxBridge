@@ -1,0 +1,6 @@
+﻿CYP4F2 Diplotype,Activity Score,Coded Diplotype/Phenotype Summary,EHR Priority Notation
+*1/*1,n/a,CYP4F2 Normal Function,Normal/Routine/Low Risk
+*1/*2,n/a,CYP4F2 Indeterminate,none
+*1/*3,n/a,CYP4F2 Reduced Function,Abnormal/Priority/High Risk
+*2/*3,n/a,CYP4F2 Indeterminate,none
+*3/*3,n/a,CYP4F2 Low Function,Abnormal/Priority/High Risk
