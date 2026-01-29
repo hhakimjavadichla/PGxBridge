@@ -1,16 +1,21 @@
-# PGX Parser - PDF Processing with Azure Document Intelligence
+# PGX Parser - Pharmacogenomics Report Processing Application
 
-A web application that filters PDF pages by keyword and analyzes them using Azure AI Document Intelligence's layout model.
+A web application that extracts pharmacogenomics (PGx) data from PDF reports, validates against CPIC standards, and generates formatted Word documents for patient and EHR use.
 
 ## Prerequisites
 
 - Python 3.11+
 - Node.js 18+
-- Azure AI Document Intelligence resource with API key
+- Azure OpenAI resource with GPT-4 deployment
+- (Optional) Azure AI Document Intelligence resource
 
 ## Quick Start
-# these conda environmet are tested:
-# pgxbridge_env
+
+### Conda Environment
+```bash
+# Tested environment: pgxbridge_env
+conda activate pgxbridge_env
+```
 
 ### Backend Setup
 
@@ -19,14 +24,13 @@ cd pgx-parser-backend-py
 cp .env.example .env
 # Edit .env with your Azure credentials
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 ```
 
 ### Frontend Setup
 
 ```bash
 cd pgx-parser-ui
-cp .env.example .env  # optional if using proxy
 npm install
 npm start
 ```
@@ -35,22 +39,31 @@ Open `http://localhost:3000` in your browser.
 
 ## Features
 
-- Upload PDF files and search for keywords
-- Case-insensitive keyword matching
-- Filters PDF to only pages containing the keyword
-- Sends filtered PDF to Azure Document Intelligence for layout analysis
-- Returns enriched JSON with metadata and full Azure analysis results
-- Skips Azure processing if no pages match (cost optimization)
+- **PGX Gene Extractor**: Upload PDF and extract patient info + gene data using Azure OpenAI
+- **CPIC Validation**: Automatic phenotype validation against CPIC database (27K+ entries)
+- **Word Report Generation**: Generate patient-facing and EHR-facing reports using Jinja2 templates (docxtpl)
+- **CSV Export**: Export extracted data as CSV files
+- **Folder Batch Processor**: Process multiple PDF files from a folder
 
 ## Architecture
 
-- **Backend**: FastAPI (Python) with pypdf for PDF manipulation
-- **Frontend**: React with minimal styling
-- **AI Service**: Azure AI Document Intelligence (prebuilt-layout model)
+- **Backend**: FastAPI (Python) with Azure OpenAI for LLM extraction
+- **Frontend**: React.js with modern UI components
+- **Templating**: docxtpl (Jinja2-based) for Word document generation
+- **AI Service**: Azure OpenAI (GPT-4) for data extraction
+
+## Key Endpoints
+
+| Endpoint | Purpose |
+|----------|----------|
+| `POST /api/extract-pgx-data` | Extract patient info and gene data from PDF |
+| `POST /api/generate-patient-report` | Generate patient-facing Word document |
+| `POST /api/generate-ehr-report` | Generate EHR-facing Word document |
+| `GET /healthz` | Health check |
 
 ## API Documentation
 
-When the backend is running, visit `http://localhost:8000/docs` for interactive API documentation.
+When the backend is running, visit `http://10.241.1.171:8010/docs` for interactive API documentation.
 
 ## License
 

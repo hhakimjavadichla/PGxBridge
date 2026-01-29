@@ -79,7 +79,7 @@ A full-stack web application that extracts pharmacogenomics (PGX) gene data from
 │  │ Intelligence    │        │ Scorer           │          │
 │  └─────────────────┘        └──────────────────┘          │
 │                                                              │
-│              http://localhost:8000                          │
+│              http://10.241.1.171:8010                          │
 └─────────────────────────────────────────────────────────────┘
                        │
                        ▼
@@ -294,7 +294,7 @@ ALLOWED_ORIGINS=http://localhost:3000
 
 - **Quick Start:** `QUICK_START.md`
 - **Testing Guide:** `TESTING_GUIDE.md`
-- **API Docs:** http://localhost:8000/docs (when running)
+- **API Docs:** http://10.241.1.171:8010/docs (when running)
 - **Backend README:** `pgx-parser-backend-py/README.md`
 - **Frontend README:** `pgx-parser-ui/README.md`
 
@@ -304,12 +304,12 @@ ALLOWED_ORIGINS=http://localhost:3000
 
 **Health Check:**
 ```bash
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 ```
 
 **Extract PGX Data:**
 ```bash
-curl -X POST http://localhost:8000/api/extract-pgx-data \
+curl -X POST http://10.241.1.171:8010/api/extract-pgx-data \
   -F "keyword=pharmacogenomics" \
   -F "file=@sample_report.pdf"
 ```
@@ -319,7 +319,7 @@ curl -X POST http://localhost:8000/api/extract-pgx-data \
 ```python
 import requests
 
-url = "http://localhost:8000/api/extract-pgx-data"
+url = "http://10.241.1.171:8010/api/extract-pgx-data"
 files = {"file": open("sample_report.pdf", "rb")}
 data = {"keyword": "pharmacogenomics"}
 

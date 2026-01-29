@@ -219,7 +219,7 @@ Create comprehensive datasets for regulatory compliance.
 ### Network Requirements
 - Requires active internet connection
 - Each PDF makes API call to backend
-- Backend must be running on localhost:8000
+- Backend must be running on 10.241.1.171:8010
 
 ## 🐛 Troubleshooting
 

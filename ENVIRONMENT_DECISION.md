@@ -32,7 +32,7 @@ cd pgx-parser-backend-py
 pip install -r requirements.txt
 
 # 4. Test it
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 ```
 
 ## 🔒 Safety: Backups Already Created
@@ -63,7 +63,7 @@ conda env create -f pgxbridge_env_backup.yml
 ```bash
 # Your current terminal already has pgxbridge_env active
 cd pgx-parser-backend-py
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 ```
 
 **For new terminals:** Use Anaconda3 directly:
@@ -86,7 +86,7 @@ conda activate pgxbridge_env
 ```bash
 conda activate pgx_parser
 cd pgx-parser-backend-py
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 ```
 
 ### Frontend (unchanged)

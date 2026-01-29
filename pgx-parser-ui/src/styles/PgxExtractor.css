@@ -158,6 +158,320 @@
   margin-top: 20px;
 }
 
+/* ===== PATIENT INFORMATION CARD LAYOUT ===== */
+.patient-section h5 {
+  color: #2c3e50;
+  font-size: 1.1em;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #3498db;
+}
+
+.patient-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.info-card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.info-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.card-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 0.85em;
+  padding: 10px 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.primary-card .card-header {
+  background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+}
+
+.test-card .card-header {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.dates-card .card-header {
+  background: linear-gradient(135deg, #ee9ca7 0%, #ffdde1 100%);
+  color: #5a3d40;
+}
+
+.clinician-card .card-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card-content {
+  padding: 12px 14px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: #7f8c8d;
+  font-size: 0.85em;
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.info-value {
+  color: #2c3e50;
+  font-size: 0.9em;
+  text-align: right;
+  word-break: break-word;
+}
+
+.info-value.highlight {
+  font-weight: 600;
+  color: #2980b9;
+  font-size: 1em;
+}
+
+.info-value.mono {
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-size: 0.85em;
+  background: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Responsive for patient cards */
+@media (max-width: 900px) {
+  .patient-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== CPIC DASHBOARD LAYOUT ===== */
+.cpic-summary-section {
+  margin: 24px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  border-radius: 12px;
+  border: none;
+}
+
+.cpic-summary-section h5 {
+  color: #2c3e50;
+  font-size: 1.1em;
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #3498db;
+}
+
+.cpic-dashboard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  font-size: 1.2em;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.stat-icon.coverage-icon {
+  background: #3498db;
+  color: white;
+}
+
+.stat-icon.risk-icon {
+  font-size: 1.4em;
+}
+
+.stat-icon.risk-icon.has-risk {
+  background: #e74c3c;
+  color: white;
+}
+
+.stat-icon.risk-icon.no-risk {
+  background: #27ae60;
+  color: white;
+}
+
+.stat-icon.match-icon {
+  background: #9b59b6;
+  color: white;
+  font-size: 0.9em;
+}
+
+.stat-icon.exact-icon {
+  background: #2ecc71;
+  color: white;
+}
+
+.stat-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-number {
+  font-size: 1.8em;
+  font-weight: 700;
+  color: #2c3e50;
+  line-height: 1.1;
+}
+
+.stat-total {
+  font-size: 0.5em;
+  color: #7f8c8d;
+  font-weight: 500;
+}
+
+.stat-unit {
+  font-size: 0.5em;
+  color: #7f8c8d;
+  font-weight: 500;
+}
+
+.stat-title {
+  font-size: 0.8em;
+  color: #7f8c8d;
+  font-weight: 500;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.stat-subtitle {
+  font-size: 0.75em;
+  color: #95a5a6;
+  margin-top: 4px;
+}
+
+/* Progress bars */
+.stat-bar {
+  height: 6px;
+  background: #ecf0f1;
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.stat-bar-fill.coverage-fill {
+  background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+}
+
+.stat-bar-fill.match-fill.high {
+  background: linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);
+}
+
+.stat-bar-fill.match-fill.medium {
+  background: linear-gradient(90deg, #f39c12 0%, #e67e22 100%);
+}
+
+.stat-bar-fill.match-fill.low {
+  background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
+}
+
+/* Risk card states */
+.risk-card.has-risk {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+  border: 1px solid #feb2b2;
+}
+
+.risk-card.has-risk .stat-number {
+  color: #c53030;
+}
+
+.risk-card.no-risk {
+  background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+  border: 1px solid #9ae6b4;
+}
+
+.risk-card.no-risk .stat-number {
+  color: #276749;
+}
+
+/* Coverage card */
+.coverage-card {
+  border-left: 4px solid #3498db;
+}
+
+/* Match card */
+.match-card {
+  border-left: 4px solid #9b59b6;
+}
+
+/* Exact matches card */
+.exact-card {
+  border-left: 4px solid #2ecc71;
+}
+
+
+/* Responsive for CPIC dashboard */
+@media (max-width: 1100px) {
+  .cpic-dashboard {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .cpic-dashboard {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-card {
+    padding: 14px;
+  }
+  
+  .stat-number {
+    font-size: 1.5em;
+  }
+}
+
 .comparison-patient-section, .comparison-genes-section {
   margin-top: 25px;
 }
@@ -592,4 +906,56 @@
   .cpic-stats {
     grid-template-columns: 1fr;
   }
+}
+
+/* Action Cell and Report Button */
+.action-cell {
+  text-align: center;
+  padding: 4px 8px;
+}
+
+.report-issue-btn {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.report-issue-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.report-issue-btn .icon {
+  font-size: 0.875rem;
+}
+
+/* General Report Issue Button */
+.report-general-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.report-general-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
 }

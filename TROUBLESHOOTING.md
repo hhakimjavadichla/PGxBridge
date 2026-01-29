@@ -8,7 +8,7 @@ Run these commands to check system status:
 
 ```bash
 # Check if backend is running
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 
 # Check if frontend is running
 curl http://localhost:3000
@@ -141,11 +141,11 @@ npm install
 **Solution:**
 ```bash
 # Verify backend is running
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 
 # Check proxy setting in package.json
 cat package.json | grep proxy
-# Should show: "proxy": "http://localhost:8000"
+# Should show: "proxy": "http://10.241.1.171:8010"
 
 # If backend is on different port, update package.json
 ```
@@ -317,7 +317,7 @@ cat .env | grep OPENAI
 # Check Network tab for failed requests
 
 # Verify API response format
-curl -X POST http://localhost:8000/api/extract-pgx-data \
+curl -X POST http://10.241.1.171:8010/api/extract-pgx-data \
   -F "keyword=test" \
   -F "file=@sample.pdf"
 ```
@@ -353,17 +353,17 @@ console.log('API Response:', response);
 ```bash
 # Run backend with verbose output
 cd pgx-parser-backend-py
-uvicorn main:app --reload --port 8000 --log-level debug
+uvicorn main:app --reload --host 10.241.1.171 --port 8010 --log-level debug
 ```
 
 ### Test API Directly
 
 ```bash
 # Test health endpoint
-curl -v http://localhost:8000/healthz
+curl -v http://10.241.1.171:8010/healthz
 
 # Test with sample file
-curl -v -X POST http://localhost:8000/api/extract-pgx-data \
+curl -v -X POST http://10.241.1.171:8010/api/extract-pgx-data \
   -F "keyword=test" \
   -F "file=@sample.pdf" \
   | jq '.'  # Pretty print JSON
@@ -425,8 +425,8 @@ npm --version
 npm list --depth=0
 
 # Backend status
-curl http://localhost:8000/healthz
-curl http://localhost:8000/docs
+curl http://10.241.1.171:8010/healthz
+curl http://10.241.1.171:8010/docs
 
 # Check running processes
 ps aux | grep uvicorn
@@ -475,4 +475,4 @@ After fixing issues, verify:
 - **Quick Start:** `QUICK_START.md`
 - **Testing Guide:** `TESTING_GUIDE.md`
 - **Project Status:** `PROJECT_STATUS.md`
-- **API Docs:** http://localhost:8000/docs
+- **API Docs:** http://10.241.1.171:8010/docs

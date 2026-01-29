@@ -67,11 +67,11 @@ pip list | grep -E "fastapi|uvicorn|pypdf|azure|openai"
 
 ```bash
 # Test backend startup
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 
 # In browser, visit:
-# http://localhost:8000/healthz
-# http://localhost:8000/docs
+# http://10.241.1.171:8010/healthz
+# http://10.241.1.171:8010/docs
 ```
 
 ### Step 4: Update Documentation
@@ -101,7 +101,7 @@ conda activate pgxbridge_env
 
 # Start backend
 cd pgx-parser-backend-py
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 ```
 
 ### Option C: Reinstall from requirements.txt
@@ -201,7 +201,7 @@ pip list | grep fastapi
 echo "✅ Verification complete"
 
 # 5. Test backend
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 # Press Ctrl+C after confirming it starts
 
 # 6. If everything works, you're done!

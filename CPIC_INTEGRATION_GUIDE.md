@@ -183,7 +183,7 @@ python test_cpic_integration.py
 uvicorn main:app --reload --port 8000
 
 # Test endpoint
-curl -X POST http://localhost:8000/api/extract-pgx-data \
+curl -X POST http://10.241.1.171:8010/api/extract-pgx-data \
   -F "keyword=pharmacogenomics" \
   -F "file=@sample_report.pdf"
 ```

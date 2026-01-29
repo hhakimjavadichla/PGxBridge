@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { extractPgxData, generatePatientReport, generateEhrReport } from '../api';
+import FeedbackForm from './FeedbackForm';
+import '../styles/PgxExtractor.css';
 
 function PgxExtractor() {
   // State management
   const [keyword, setKeyword] = useState('Patient Genotype');
   const [file, setFile] = useState(null);
-  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
-  const [batchResults, setBatchResults] = useState([]);
-  const [batchMode, setBatchMode] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [generatingEhrReport, setGeneratingEhrReport] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackGene, setFeedbackGene] = useState(null);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -29,21 +29,16 @@ function PgxExtractor() {
       return;
     }
 
-    if (!file && !files.length) {
-      setError('Please select a PDF file or multiple files for batch processing');
+    if (!file) {
+      setError('Please select a PDF file');
       return;
     }
 
     // Process document
     setLoading(true);
     try {
-      if (batchMode) {
-        const responses = await Promise.all(files.map((file) => extractPgxData(keyword, file)));
-        setBatchResults(responses);
-      } else {
-        const response = await extractPgxData(keyword, file);
-        setResult(response);
-      }
+      const response = await extractPgxData(keyword, file);
+      setResult(response);
     } catch (err) {
       setError(err.message || 'An error occurred while processing the document');
     } finally {
@@ -60,18 +55,6 @@ function PgxExtractor() {
     } else if (selectedFile) {
       setError('Please select a PDF file');
       setFile(null);
-    }
-  };
-
-  const handleBatchFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    const pdfFiles = selectedFiles.filter((file) => file.type === 'application/pdf');
-    if (pdfFiles.length) {
-      setFiles(pdfFiles);
-      setError(null);
-    } else {
-      setError('Please select one or more PDF files');
-      setFiles([]);
     }
   };
 
@@ -225,32 +208,11 @@ function PgxExtractor() {
             id="pgx-file"
             accept=".pdf,application/pdf"
             onChange={handleFileChange}
-            disabled={loading || batchMode}
+            disabled={loading}
           />
-          {batchMode && (
-            <input
-              type="file"
-              id="pgx-files"
-              accept=".pdf,application/pdf"
-              multiple
-              onChange={handleBatchFileChange}
-              disabled={loading}
-            />
-          )}
         </div>
 
-        <div className="form-group">
-          <label>
-            <input
-              type="checkbox"
-              checked={batchMode}
-              onChange={(e) => setBatchMode(e.target.checked)}
-            />
-            Batch Processing
-          </label>
-        </div>
-
-        <button type="submit" disabled={loading || !keyword || (!file && !files.length)}>
+        <button type="submit" disabled={loading || !keyword || !file}>
           {loading ? 'Extracting...' : 'Extract PGX Data'}
         </button>
       </form>
@@ -278,50 +240,152 @@ function PgxExtractor() {
           {/* LLM Results (Primary) */}
           {result.llm_extraction && (
             <div className="llm-primary-results">
-              <h4>🤖 PGX Gene Analysis Results</h4>
+              <h4>PGX Gene Analysis Results</h4>
               <p><strong>Method:</strong> {result.llm_extraction.extraction_method}</p>
                 
-              {/* LLM Patient Information */}
+              {/* LLM Patient Information - Redesigned */}
               <div className="patient-section">
                 <h5>Patient Information</h5>
-                <table className="patient-table">
-                  <thead>
-                    <tr>
-                      <th>Field</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.keys(result.llm_extraction.patient_info).map(key => (
-                      <tr key={key}>
-                        <td className="field-name">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
-                        <td className="field-value">{result.llm_extraction.patient_info[key] || 'Not found'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="patient-info-grid">
+                  {/* Primary Info Card */}
+                  <div className="info-card primary-card">
+                    <div className="card-header">Patient Details</div>
+                    <div className="card-content">
+                      <div className="info-row">
+                        <span className="info-label">Name</span>
+                        <span className="info-value highlight">{result.llm_extraction.patient_info.patient_name || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Date of Birth</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.date_of_birth || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Cohort</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.cohort || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Test Info Card */}
+                  <div className="info-card test-card">
+                    <div className="card-header">Test Information</div>
+                    <div className="card-content">
+                      <div className="info-row">
+                        <span className="info-label">Test</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.test || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Report ID</span>
+                        <span className="info-value mono">{result.llm_extraction.patient_info.report_id || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Indication</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.indication_for_testing || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dates Card */}
+                  <div className="info-card dates-card">
+                    <div className="card-header">Key Dates</div>
+                    <div className="card-content">
+                      <div className="info-row">
+                        <span className="info-label">Report Date</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.report_date || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Sample Collection</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.sample_collection_date || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Sample Received</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.sample_received_date || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Processed</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.processed_date || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Clinician Card */}
+                  <div className="info-card clinician-card">
+                    <div className="card-header">Ordering Clinician</div>
+                    <div className="card-content">
+                      <div className="info-row">
+                        <span className="info-label">Name</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.ordering_clinician || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">NPI</span>
+                        <span className="info-value mono">{result.llm_extraction.patient_info.npi || '—'}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Sample Type</span>
+                        <span className="info-value">{result.llm_extraction.patient_info.sample_type || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* CPIC Summary Statistics */}
+              {/* CPIC Summary Statistics - Redesigned */}
               {result.cpic_summary && (
                 <div className="cpic-summary-section">
-                  <h5>📊 CPIC Validation Summary</h5>
-                  <div className="cpic-stats">
-                    <div className="stat-item">
-                      <span className="stat-label">CPIC Coverage:</span>
-                      <span className="stat-value">{result.cpic_summary.cpic_found}/{result.cpic_summary.total_genes}</span>
+                  <h5>CPIC Validation Summary</h5>
+                  <div className="cpic-dashboard">
+                    {/* Coverage Stat */}
+                    <div className="stat-card coverage-card">
+                      <div className="stat-icon coverage-icon">●</div>
+                      <div className="stat-details">
+                        <div className="stat-number">
+                          {result.cpic_summary.cpic_found}<span className="stat-total">/{result.cpic_summary.total_genes}</span>
+                        </div>
+                        <div className="stat-title">CPIC Coverage</div>
+                        <div className="stat-bar">
+                          <div 
+                            className="stat-bar-fill coverage-fill" 
+                            style={{width: `${(result.cpic_summary.cpic_found / result.cpic_summary.total_genes) * 100}%`}}
+                          ></div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="stat-item">
-                      <span className="stat-label">High-Risk Variants:</span>
-                      <span className="stat-value high-risk">{result.cpic_summary.high_risk_count}</span>
+
+                    {/* High Risk Stat */}
+                    <div className={`stat-card risk-card ${result.cpic_summary.high_risk_count > 0 ? 'has-risk' : 'no-risk'}`}>
+                      <div className={`stat-icon risk-icon ${result.cpic_summary.high_risk_count > 0 ? 'has-risk' : 'no-risk'}`}>!</div>
+                      <div className="stat-details">
+                        <div className="stat-number risk-number">{result.cpic_summary.high_risk_count}</div>
+                        <div className="stat-title">High-Risk Variants</div>
+                        <div className="stat-subtitle">
+                          {result.cpic_summary.high_risk_count > 0 ? 'Requires attention' : 'No high-risk findings'}
+                        </div>
+                      </div>
                     </div>
-                    <div className="stat-item">
-                      <span className="stat-label">Match Rate:</span>
-                      <span className="stat-value">{result.cpic_summary.match_rate}%</span>
+
+                    {/* Match Rate Stat */}
+                    <div className="stat-card match-card">
+                      <div className="stat-icon match-icon">%</div>
+                      <div className="stat-details">
+                        <div className="stat-number">{result.cpic_summary.match_rate}<span className="stat-unit">%</span></div>
+                        <div className="stat-title">Match Rate</div>
+                        <div className="stat-bar">
+                          <div 
+                            className={`stat-bar-fill match-fill ${result.cpic_summary.match_rate >= 80 ? 'high' : result.cpic_summary.match_rate >= 50 ? 'medium' : 'low'}`}
+                            style={{width: `${result.cpic_summary.match_rate}%`}}
+                          ></div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="stat-item">
-                      <span className="stat-label">Exact Matches:</span>
-                      <span className="stat-value">{result.cpic_summary.exact_matches}</span>
+
+                    {/* Exact Matches Stat */}
+                    <div className="stat-card exact-card">
+                      <div className="stat-icon exact-icon">✓</div>
+                      <div className="stat-details">
+                        <div className="stat-number">{result.cpic_summary.exact_matches}</div>
+                        <div className="stat-title">Exact Matches</div>
+                        <div className="stat-subtitle">PDF ↔ CPIC agreement</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -340,6 +404,7 @@ function PgxExtractor() {
                       <th>CPIC Category</th>
                       <th>Priority</th>
                       <th>Match</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -365,6 +430,18 @@ function PgxExtractor() {
                           {gene.cpic_match_status === 'equivalent_match' && <span className="match-equivalent">✓ Equiv</span>}
                           {gene.cpic_match_status === 'mismatch' && <span className="match-mismatch">✗ Mismatch</span>}
                           {gene.cpic_match_status === 'not_found' && <span className="match-notfound">ℹ️ N/A</span>}
+                        </td>
+                        <td className="action-cell">
+                          <button 
+                            className="report-issue-btn"
+                            onClick={() => {
+                              setFeedbackGene(gene);
+                              setFeedbackOpen(true);
+                            }}
+                            title="Report an issue with this gene's data"
+                          >
+                            <span className="icon">⚑</span> Report
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -431,11 +508,31 @@ function PgxExtractor() {
                 >
                   {generatingEhrReport ? '⏳ Generating...' : '🏥 Generate EHR Note (Word)'}
                 </button>
+                <button 
+                  className="report-general-btn"
+                  onClick={() => {
+                    setFeedbackGene(null);
+                    setFeedbackOpen(true);
+                  }}
+                >
+                  ⚑ Report an Issue
+                </button>
               </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Feedback Modal */}
+      <FeedbackForm
+        isOpen={feedbackOpen}
+        onClose={() => {
+          setFeedbackOpen(false);
+          setFeedbackGene(null);
+        }}
+        geneData={feedbackGene}
+        filename={file?.name}
+      />
     </div>
   );
 }

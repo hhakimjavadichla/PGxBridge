@@ -9,6 +9,8 @@ function FolderBatchProcessor() {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
+  const [generatingPatientReports, setGeneratingPatientReports] = useState(false);
+  const [generatingEhrReports, setGeneratingEhrReports] = useState(false);
 
   // Handle folder/file selection
   const handleFileChange = (e) => {
@@ -79,6 +81,84 @@ function FolderBatchProcessor() {
 
     if (errors.length > 0) {
       setError(`Completed with ${errors.length} error(s). See results below.`);
+    }
+  };
+
+  // Generate batch patient reports as ZIP
+  const generateBatchPatientReports = async () => {
+    const successfulResults = results.filter(r => r.success);
+    if (successfulResults.length === 0) {
+      setError('No successful results to generate reports from');
+      return;
+    }
+
+    setGeneratingPatientReports(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('results_json', JSON.stringify(successfulResults));
+
+      const response = await fetch('/api/generate-batch-patient-reports', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to generate reports');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `PGx_Patient_Reports_${new Date().toISOString().split('T')[0]}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Failed to generate patient reports: ' + err.message);
+    } finally {
+      setGeneratingPatientReports(false);
+    }
+  };
+
+  // Generate batch EHR reports as ZIP
+  const generateBatchEhrReports = async () => {
+    const successfulResults = results.filter(r => r.success);
+    if (successfulResults.length === 0) {
+      setError('No successful results to generate reports from');
+      return;
+    }
+
+    setGeneratingEhrReports(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('results_json', JSON.stringify(successfulResults));
+
+      const response = await fetch('/api/generate-batch-ehr-reports', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to generate reports');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `PGx_EHR_Notes_${new Date().toISOString().split('T')[0]}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Failed to generate EHR reports: ' + err.message);
+    } finally {
+      setGeneratingEhrReports(false);
     }
   };
 
@@ -301,13 +381,29 @@ function FolderBatchProcessor() {
             </div>
           </div>
 
-          <button
-            className="export-btn"
-            onClick={exportConsolidatedCSV}
-            disabled={summary.successful === 0}
-          >
-            📥 Export Consolidated CSV
-          </button>
+          <div className="export-buttons">
+            <button
+              className="export-btn"
+              onClick={exportConsolidatedCSV}
+              disabled={summary.successful === 0}
+            >
+              📥 Export Consolidated CSV
+            </button>
+            <button
+              className="export-btn patient-report-btn"
+              onClick={generateBatchPatientReports}
+              disabled={summary.successful === 0 || generatingPatientReports}
+            >
+              {generatingPatientReports ? '⏳ Generating...' : '📄 Generate Patient Reports (ZIP)'}
+            </button>
+            <button
+              className="export-btn ehr-report-btn"
+              onClick={generateBatchEhrReports}
+              disabled={summary.successful === 0 || generatingEhrReports}
+            >
+              {generatingEhrReports ? '⏳ Generating...' : '🏥 Generate EHR Notes (ZIP)'}
+            </button>
+          </div>
         </div>
       )}
 

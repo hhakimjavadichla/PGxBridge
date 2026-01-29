@@ -12,12 +12,18 @@ from typing import List, Dict, Optional
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import nsdecls
+from docx.oxml import parse_xml, OxmlElement
+from docx.oxml.ns import qn
+from docxtpl import DocxTemplate
 
 logger = logging.getLogger(__name__)
 
 # Path to template files
 PATIENT_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "PGx Patient Report_04.08.25.docx")
 EHR_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "Note template.docx")
+EHR_TEMPLATE_JINJA2_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "Note_template_jinja2.docx")
+PATIENT_TEMPLATE_JINJA2_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "PGx_Patient_Report_jinja2.docx")
 
 # Legacy alias
 TEMPLATE_PATH = PATIENT_TEMPLATE_PATH
@@ -127,12 +133,52 @@ def clear_table_keep_header(table):
         table._tbl.remove(table.rows[-1]._tr)
 
 
-def add_row_to_table(table, cells_data: List[str]):
-    """Add a new row to the table with the given cell data."""
+def set_cell_border(cell, border_color="000000", border_size="4"):
+    """
+    Apply borders to a table cell.
+    
+    Args:
+        cell: The table cell to apply borders to
+        border_color: Hex color code for border (default black)
+        border_size: Border width in eighths of a point (default 4 = 0.5pt)
+    """
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    
+    # Remove existing borders if any
+    existing_borders = tcPr.find(qn('w:tcBorders'))
+    if existing_borders is not None:
+        tcPr.remove(existing_borders)
+    
+    # Create new borders element
+    tcBorders = OxmlElement('w:tcBorders')
+    
+    for border_name in ['top', 'left', 'bottom', 'right']:
+        border = OxmlElement(f'w:{border_name}')
+        border.set(qn('w:val'), 'single')
+        border.set(qn('w:sz'), border_size)
+        border.set(qn('w:color'), border_color)
+        border.set(qn('w:space'), '0')
+        tcBorders.append(border)
+    
+    tcPr.append(tcBorders)
+
+
+def add_row_to_table(table, cells_data: List[str], apply_borders: bool = True):
+    """
+    Add a new row to the table with the given cell data.
+    
+    Args:
+        table: The table to add a row to
+        cells_data: List of strings for each cell
+        apply_borders: Whether to apply borders to cells (default True)
+    """
     row = table.add_row()
     for i, text in enumerate(cells_data):
         if i < len(row.cells):
             row.cells[i].text = text
+            if apply_borders:
+                set_cell_border(row.cells[i])
 
 
 def generate_patient_report(
@@ -242,6 +288,81 @@ def generate_patient_report_filename(patient_info: Dict) -> str:
         return f"PGx_Report_{safe_name}_{safe_date}.docx"
     else:
         return f"PGx_Report_{safe_name}.docx"
+
+
+def generate_patient_report_docxtpl(
+    patient_info: Dict,
+    pgx_genes: List[Dict],
+    output_path: Optional[str] = None
+) -> bytes:
+    """
+    Generate a patient-facing PGx report using docxtpl (Jinja2 templating).
+    
+    This function uses a Jinja2-enabled Word template for better formatting
+    preservation including table borders, fonts, and styles.
+    
+    Args:
+        patient_info: Dictionary with patient information
+        pgx_genes: List of gene data dictionaries with CPIC annotations
+        output_path: Optional path to save the document (for debugging)
+        
+    Returns:
+        bytes: The generated Word document as bytes
+    """
+    if not os.path.exists(PATIENT_TEMPLATE_JINJA2_PATH):
+        raise FileNotFoundError(f"Jinja2 Patient template not found at: {PATIENT_TEMPLATE_JINJA2_PATH}")
+    
+    # Load template
+    template = DocxTemplate(PATIENT_TEMPLATE_JINJA2_PATH)
+    
+    # Filter high-risk genes (high-risk + CYP2C19)
+    high_risk_genes = []
+    all_genes = []
+    
+    for g in pgx_genes:
+        gene_row = {
+            "gene": g.get("gene", ""),
+            "genotype": g.get("genotype", ""),
+            "phenotype": g.get("metabolizer_status", "") or g.get("cpic_phenotype", ""),
+            "medications": get_medication_examples(g.get("gene", ""))
+        }
+        
+        all_genes.append(gene_row)
+        
+        if is_high_risk_or_cyp2c19(g):
+            high_risk_genes.append(gene_row)
+    
+    # Sort both lists by gene name
+    high_risk_genes.sort(key=lambda x: x["gene"])
+    all_genes.sort(key=lambda x: x["gene"])
+    
+    logger.info(f"Patient Report (docxtpl): {len(high_risk_genes)} high-risk, {len(all_genes)} total genes")
+    
+    # Build context for template rendering
+    context = {
+        # Patient info
+        "patient_name": patient_info.get("patient_name", ""),
+        "date_of_birth": patient_info.get("date_of_birth", ""),
+        "report_date": patient_info.get("report_date", ""),
+        
+        # Gene lists
+        "high_risk_genes": high_risk_genes,
+        "all_genes": all_genes,
+    }
+    
+    # Render the template with context
+    template.render(context)
+    
+    # Save to file if path provided (for debugging)
+    if output_path:
+        template.save(output_path)
+        logger.info(f"Patient report (docxtpl) saved to: {output_path}")
+    
+    # Return as bytes
+    buffer = io.BytesIO()
+    template.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 def generate_ehr_report(
@@ -359,3 +480,87 @@ def generate_ehr_report_filename(patient_info: Dict) -> str:
         return f"PGx_EHR_Note_{safe_name}_{safe_date}.docx"
     else:
         return f"PGx_EHR_Note_{safe_name}.docx"
+
+
+def generate_ehr_report_docxtpl(
+    patient_info: Dict,
+    pgx_genes: List[Dict],
+    output_path: Optional[str] = None
+) -> bytes:
+    """
+    Generate an EHR-facing PGx report using docxtpl (Jinja2 templating).
+    
+    This function uses a Jinja2-enabled Word template for better formatting
+    preservation including table borders, fonts, and styles.
+    
+    Args:
+        patient_info: Dictionary with patient information
+        pgx_genes: List of gene data dictionaries with CPIC annotations
+        output_path: Optional path to save the document (for debugging)
+        
+    Returns:
+        bytes: The generated Word document as bytes
+    """
+    if not os.path.exists(EHR_TEMPLATE_JINJA2_PATH):
+        raise FileNotFoundError(f"Jinja2 EHR template not found at: {EHR_TEMPLATE_JINJA2_PATH}")
+    
+    # Load template
+    template = DocxTemplate(EHR_TEMPLATE_JINJA2_PATH)
+    
+    # Categorize genes into priority, standard, and unknown
+    priority_genes = []
+    standard_genes = []
+    unknown_genes = []
+    
+    for g in pgx_genes:
+        category = get_priority_category(g)
+        gene_row = {
+            "gene": g.get("gene", ""),
+            "genotype": g.get("genotype", ""),
+            "phenotype": g.get("metabolizer_status", "") or g.get("cpic_phenotype", ""),
+            "medications": get_medication_examples(g.get("gene", ""))
+        }
+        
+        if category == "priority":
+            priority_genes.append(gene_row)
+        elif category == "standard":
+            standard_genes.append(gene_row)
+        else:
+            unknown_genes.append(gene_row)
+    
+    # Sort each list by gene name
+    priority_genes.sort(key=lambda x: x["gene"])
+    standard_genes.sort(key=lambda x: x["gene"])
+    unknown_genes.sort(key=lambda x: x["gene"])
+    
+    logger.info(f"EHR Report (docxtpl): {len(priority_genes)} priority, {len(standard_genes)} standard, {len(unknown_genes)} unknown")
+    
+    # Build context for template rendering
+    context = {
+        # Patient info
+        "patient_name": patient_info.get("patient_name", ""),
+        "date_of_birth": patient_info.get("date_of_birth", ""),
+        "mrn": patient_info.get("mrn", ""),
+        "insurance": patient_info.get("insurance", ""),
+        "report_date": patient_info.get("report_date", ""),
+        "ordering_clinician": patient_info.get("ordering_clinician", ""),
+        
+        # Gene lists
+        "priority_genes": priority_genes,
+        "standard_genes": standard_genes,
+        "unknown_genes": unknown_genes,
+    }
+    
+    # Render the template with context
+    template.render(context)
+    
+    # Save to file if path provided (for debugging)
+    if output_path:
+        template.save(output_path)
+        logger.info(f"EHR report (docxtpl) saved to: {output_path}")
+    
+    # Return as bytes
+    buffer = io.BytesIO()
+    template.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()

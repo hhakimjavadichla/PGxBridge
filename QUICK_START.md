@@ -18,7 +18,7 @@
 # Terminal 1 - Backend
 cd pgx-parser-backend-py
 conda activate pgxbridge_env
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 
 # Terminal 2 - Frontend
 cd pgx-parser-ui
@@ -29,13 +29,13 @@ npm start
 
 1. **Backend Health Check:**
    ```bash
-   curl http://localhost:8000/healthz
+   curl http://10.241.1.171:8010/healthz
    # Should return: {"ok":true}
    ```
 
 2. **Frontend:** Open browser to `http://localhost:3000`
 
-3. **API Docs:** Visit `http://localhost:8000/docs`
+3. **API Docs:** Visit `http://10.241.1.171:8010/docs`
 
 ## 📋 Prerequisites
 
@@ -106,11 +106,11 @@ Press `CTRL+C` in each terminal window
 - **Complete Testing Guide:** See `TESTING_GUIDE.md`
 - **Backend README:** `pgx-parser-backend-py/README.md`
 - **Frontend README:** `pgx-parser-ui/README.md`
-- **API Docs:** `http://localhost:8000/docs` (when running)
+- **API Docs:** `http://10.241.1.171:8010/docs` (when running)
 
 ## 🔗 Useful URLs
 
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
-- Health Check: http://localhost:8000/healthz
+- Backend API: http://10.241.1.171:8010
+- API Documentation: http://10.241.1.171:8010/docs
+- Health Check: http://10.241.1.171:8010/healthz

@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "created": "2026-01-28T19:07:44.994795",
+    "version": "1.0"
+  },
+  "users": [
+    {
+      "username": "admin",
+      "password_hash": "3612f78872399266e82dabf542535415:14dd215936268172604e86adae3609455696b9f931e42ac150d98302777258b6",
+      "role": "admin",
+      "created_at": "2026-01-28T19:07:44.994787",
+      "created_by": "system",
+      "active": true
+    }
+  ]
+}

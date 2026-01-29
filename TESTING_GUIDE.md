@@ -65,7 +65,7 @@ If `.env` doesn't exist, create it with your credentials.
 ### 1.5 Start the Backend Server
 
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 ```
 
 Expected output:
@@ -82,7 +82,7 @@ INFO:     Application startup complete.
 Open a new terminal and test the health endpoint:
 
 ```bash
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 ```
 
 Expected response:
@@ -92,7 +92,7 @@ Expected response:
 
 View API documentation:
 ```bash
-open http://localhost:8000/docs
+open http://10.241.1.171:8010/docs
 ```
 
 ## Step 2: Frontend Setup
@@ -233,13 +233,13 @@ If both extraction methods are available, the system compares results.
 ### 4.1 Test Health Check
 
 ```bash
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 ```
 
 ### 4.2 Test Document Processing
 
 ```bash
-curl -X POST http://localhost:8000/api/process-document \
+curl -X POST http://10.241.1.171:8010/api/process-document \
   -F "keyword=pharmacogenomics" \
   -F "file=@/path/to/your/sample.pdf"
 ```
@@ -247,7 +247,7 @@ curl -X POST http://localhost:8000/api/process-document \
 ### 4.3 Test PGX Data Extraction
 
 ```bash
-curl -X POST http://localhost:8000/api/extract-pgx-data \
+curl -X POST http://10.241.1.171:8010/api/extract-pgx-data \
   -F "keyword=pharmacogenomics" \
   -F "file=@/path/to/your/pgx_report.pdf"
 ```
@@ -294,7 +294,7 @@ lsof -ti:3000 | xargs kill -9
 **Issue:** Cannot connect to backend
 ```bash
 # Solution: Verify backend is running on port 8000
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 # Check proxy setting in package.json
 cat package.json | grep proxy
 ```
@@ -375,16 +375,16 @@ conda deactivate
 
 ```bash
 # Start everything
-cd pgx-parser-backend-py && conda activate pgxbridge_env && uvicorn main:app --reload --port 8000
+cd pgx-parser-backend-py && conda activate pgxbridge_env && uvicorn main:app --reload --host 10.241.1.171 --port 8010
 # In new terminal:
 cd pgx-parser-ui && npm start
 
 # Check if services are running
-curl http://localhost:8000/healthz  # Backend
+curl http://10.241.1.171:8010/healthz  # Backend
 curl http://localhost:3000          # Frontend
 
 # View API docs
-open http://localhost:8000/docs
+open http://10.241.1.171:8010/docs
 
 # View logs
 tail -f backend.log  # If logging to file

@@ -14,8 +14,8 @@ cd /Users/hhakimjavadi/Library/CloudStorage/OneDrive-ChildrensHospitalLosAngeles
 
 **Expected output:**
 ```
-✅ Starting FastAPI server on http://localhost:8000
-📚 API docs available at http://localhost:8000/docs
+✅ Starting FastAPI server on http://10.241.1.171:8010
+📚 API docs available at http://10.241.1.171:8010/docs
 ```
 
 ### Step 2: Start Frontend (Terminal 2)
@@ -103,8 +103,8 @@ npm install
 
 ### Port already in use?
 ```bash
-# Kill process on port 8000 (backend)
-lsof -ti:8000 | xargs kill -9
+# Kill process on --host 10.241.1.171 --port 8010 (backend)
+lsof -ti:8010 | xargs kill -9
 
 # Kill process on port 3000 (frontend)
 lsof -ti:3000 | xargs kill -9
@@ -119,7 +119,7 @@ Run these checks:
 
 ```bash
 # 1. Backend health check
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 # Should return: {"ok":true}
 
 # 2. Frontend is running
@@ -127,7 +127,7 @@ curl http://localhost:3000
 # Should return HTML
 
 # 3. View API documentation
-open http://localhost:8000/docs
+open http://10.241.1.171:8010/docs
 ```
 
 ## 📊 Current Project Status
@@ -152,9 +152,9 @@ open http://localhost:8000/docs
 | What | Where |
 |------|-------|
 | Frontend | http://localhost:3000 |
-| Backend API | http://localhost:8000 |
-| API Docs | http://localhost:8000/docs |
-| Health Check | http://localhost:8000/healthz |
+| Backend API | http://10.241.1.171:8010 |
+| API Docs | http://10.241.1.171:8010/docs |
+| Health Check | http://10.241.1.171:8010/healthz |
 | Backend Code | `pgx-parser-backend-py/` |
 | Frontend Code | `pgx-parser-ui/` |
 

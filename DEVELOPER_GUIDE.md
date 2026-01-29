@@ -1,7 +1,7 @@
 # PGX Parser - Comprehensive Developer Guide
 
-> **Last Updated**: December 2024  
-> **Version**: 2.0  
+> **Last Updated**: January 2026  
+> **Version**: 2.1  
 > **Purpose**: Complete reference for developers continuing this project
 
 ---
@@ -75,13 +75,12 @@ PGX Parser is a pharmacogenomics (PGx) report processing application that:
                               ▼ HTTP REST API
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FASTAPI BACKEND                             │
-│                    (Python - Port 8000)                          │
+│                 (Python - 10.241.1.171:8010)                      │
 ├─────────────────────────────────────────────────────────────────┤
 │  Endpoints:                                                      │
 │  ├── POST /api/extract-pgx-data      → Main extraction           │
 │  ├── POST /api/generate-patient-report → Patient Word doc        │
 │  ├── POST /api/generate-ehr-report   → EHR Word doc              │
-│  ├── POST /api/process-document      → Azure Doc Intelligence    │
 │  └── GET  /healthz                   → Health check              │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -120,6 +119,7 @@ PGX Parser is a pharmacogenomics (PGx) report processing application that:
 | `pydantic` | ≥2.0.0 | Data validation |
 | `pypdf` | ≥3.0.0 | PDF text extraction |
 | `python-docx` | ≥1.1.0 | Word document generation |
+| `docxtpl` | ≥0.16.0 | Jinja2-based Word templating |
 | `openai` | ≥1.0.0 | Azure OpenAI client |
 | `pandas` | (implicit) | CPIC table processing |
 | `azure-ai-documentintelligence` | ≥1.0.0 | Azure Doc Intelligence |
@@ -172,7 +172,7 @@ cp .env.example .env
 # AZURE_DOC_INTELLIGENCE_KEY=your_key
 
 # Start backend
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 ```
 
 ### Frontend Setup
@@ -190,9 +190,9 @@ npm start
 
 ### Verify Installation
 
-1. Backend health check: `http://localhost:8000/healthz`
+1. Backend health check: `http://10.241.1.171:8010/healthz`
 2. Frontend: `http://localhost:3000`
-3. API docs: `http://localhost:8000/docs`
+3. API docs: `http://10.241.1.171:8010/docs`
 
 ---
 
@@ -247,11 +247,19 @@ class CPICAnnotator:
 #### Report Generator Functions (report_generator.py)
 
 ```python
+# Legacy functions (python-docx based)
 def generate_patient_report(patient_info: Dict, pgx_genes: List[Dict]) -> bytes:
     """Generate patient-facing Word document."""
     
 def generate_ehr_report(patient_info: Dict, pgx_genes: List[Dict]) -> bytes:
     """Generate EHR-facing Word document."""
+
+# Recommended: docxtpl-based functions (better formatting preservation)
+def generate_patient_report_docxtpl(patient_info: Dict, pgx_genes: List[Dict]) -> bytes:
+    """Generate patient-facing Word document using Jinja2 templates."""
+    
+def generate_ehr_report_docxtpl(patient_info: Dict, pgx_genes: List[Dict]) -> bytes:
+    """Generate EHR-facing Word document using Jinja2 templates."""
     
 def get_priority_category(gene_data: Dict) -> str:
     """Categorize gene as 'priority', 'standard', or 'unknown'."""
@@ -282,18 +290,14 @@ src/
 | `extractPgxData(keyword, file)` | POST /api/extract-pgx-data | JSON |
 | `generatePatientReport(keyword, file)` | POST /api/generate-patient-report | Blob |
 | `generateEhrReport(keyword, file)` | POST /api/generate-ehr-report | Blob |
-| `processDocument(keyword, file)` | POST /api/process-document | JSON |
 
 ### PgxExtractor Component State
 
 ```javascript
 const [keyword, setKeyword] = useState('Patient Genotype');  // Search keyword
-const [file, setFile] = useState(null);                       // Single file
-const [files, setFiles] = useState([]);                       // Batch files
+const [file, setFile] = useState(null);                       // PDF file
 const [loading, setLoading] = useState(false);                // Loading state
 const [result, setResult] = useState(null);                   // Extraction result
-const [batchResults, setBatchResults] = useState([]);         // Batch results
-const [batchMode, setBatchMode] = useState(false);            // Batch toggle
 const [error, setError] = useState(null);                     // Error message
 const [generatingReport, setGeneratingReport] = useState(false);      // Patient report
 const [generatingEhrReport, setGeneratingEhrReport] = useState(false); // EHR report
@@ -301,7 +305,7 @@ const [generatingEhrReport, setGeneratingEhrReport] = useState(false); // EHR re
 
 ### Key UI Features
 
-1. **PDF Upload** - Single or batch mode
+1. **PDF Upload** - Single file upload
 2. **Keyword Input** - Default: "Patient Genotype"
 3. **Extract Button** - Triggers LLM extraction
 4. **Results Display**:
@@ -373,9 +377,32 @@ Location: `annotations/cpic_diplotype_phenotype_integrated.csv`
 
 ```
 templates/
-├── PGx Patient Report_04.08.25.docx   # Patient-facing template
-└── Note template.docx                  # EHR-facing template
+├── PGx Patient Report_04.08.25.docx   # Patient-facing template (legacy)
+├── PGx_Patient_Report_jinja2.docx     # Patient-facing Jinja2 template
+├── Note template.docx                  # EHR-facing template (legacy)
+└── Note_template_jinja2.docx           # EHR-facing Jinja2 template
 ```
+
+### Templating Approach
+
+The application uses **docxtpl** (Jinja2-based templating) for Word document generation. This approach:
+
+- Preserves table borders and formatting
+- Uses `{{variable}}` placeholders for dynamic content
+- Uses `{%tr for item in list %}` for table row loops
+- Allows non-developers to edit templates in Word
+
+### Jinja2 Template Variables
+
+**Patient Info:**
+- `{{patient_name}}` - Patient full name
+- `{{date_of_birth}}` - Date of birth
+- `{{report_date}}` - Report date
+
+**Gene Lists (for table loops):**
+- `priority_genes` / `high_risk_genes` - High-risk and CYP2C19 genes
+- `standard_genes` - Normal/routine genes
+- `unknown_genes` / `all_genes` - All other genes
 
 ### Patient Report Structure
 
@@ -624,8 +651,10 @@ pgx-bridge_v02/
 │   └── cpic_diplotype_phenotype_integrated.csv
 │
 ├── templates/                          # Word templates
-│   ├── PGx Patient Report_04.08.25.docx
-│   └── Note template.docx
+│   ├── PGx Patient Report_04.08.25.docx  # Legacy patient template
+│   ├── PGx_Patient_Report_jinja2.docx    # Jinja2 patient template
+│   ├── Note template.docx                 # Legacy EHR template
+│   └── Note_template_jinja2.docx          # Jinja2 EHR template
 │
 └── out/                                # Generated outputs
 ```
@@ -643,7 +672,7 @@ cd pgx-parser-backend-py
 python test_cpic_integration.py
 
 # Test with sample PDF
-curl -X POST "http://localhost:8000/api/extract-pgx-data" \
+curl -X POST "http://10.241.1.171:8010/api/extract-pgx-data" \
   -F "keyword=Patient Genotype" \
   -F "file=@sample.pdf"
 ```
@@ -682,7 +711,7 @@ for table in doc.tables:
 | CPIC table not found | Wrong path | Verify `annotations/` folder |
 | Word template not found | Wrong path | Check `templates/` folder |
 | Empty gene table | Keyword mismatch | Try different keyword |
-| CORS error | Backend not running | Start backend on port 8000 |
+| CORS error | Backend not running | Start backend on 10.241.1.171:8010 |
 
 ### Debug Logging
 
@@ -765,27 +794,27 @@ pip install -r requirements.txt
 
 ```
 # Start Backend
-cd pgx-parser-backend-py && uvicorn main:app --reload --port 8000
+cd pgx-parser-backend-py && uvicorn main:app --reload --host 10.241.1.171 --port 8010
 
 # Start Frontend  
 cd pgx-parser-ui && npm start
 
 # Health Check
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 
 # Extract Data (curl)
-curl -X POST http://localhost:8000/api/extract-pgx-data \
+curl -X POST http://10.241.1.171:8010/api/extract-pgx-data \
   -F "keyword=Patient Genotype" \
   -F "file=@report.pdf"
 
 # Generate Patient Report (curl)
-curl -X POST http://localhost:8000/api/generate-patient-report \
+curl -X POST http://10.241.1.171:8010/api/generate-patient-report \
   -F "keyword=Patient Genotype" \
   -F "file=@report.pdf" \
   -o patient_report.docx
 
 # Generate EHR Report (curl)
-curl -X POST http://localhost:8000/api/generate-ehr-report \
+curl -X POST http://10.241.1.171:8010/api/generate-ehr-report \
   -F "keyword=Patient Genotype" \
   -F "file=@report.pdf" \
   -o ehr_report.docx

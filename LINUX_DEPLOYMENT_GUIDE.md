@@ -246,7 +246,7 @@ conda activate pgxbridge  # or source venv/bin/activate
 
 # Start backend (terminal 1 or use screen/tmux)
 cd ~/pgx-bridge_v02/pgx-parser-backend-py
-uvicorn main:app --host 0.0.0.0 --port 8000 &
+uvicorn main:app --host 10.241.1.171 --port 8010 &
 
 # Start frontend (terminal 2 or in background)
 cd ~/pgx-bridge_v02/pgx-parser-ui
@@ -276,7 +276,7 @@ conda activate pgxbridge
 
 # Start backend
 cd ~/pgx-bridge_v02/pgx-parser-backend-py
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 10.241.1.171 --port 8010
 ```
 
 Create `~/pgx-bridge_v02/run_frontend.sh`:
@@ -323,18 +323,18 @@ ssh -L 8000:compute-042:8000 -L 3000:compute-043:3000 username@hpc-login-node
 
 # Now access from your browser:
 # Frontend: http://localhost:3000
-# Backend: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+# Backend: http://10.241.1.171:8010
+# API Docs: http://10.241.1.171:8010/docs
 ```
 
 **Alternative: Port Forwarding Through Login Node**
 
 ```bash
 # On HPC, forward from compute node to login node
-ssh -L 8000:localhost:8000 -L 3000:localhost:3000 username@compute-042 -N &
+ssh -L 8000:10.241.1.171:8010 -L 3000:localhost:3000 username@compute-042 -N &
 
 # Then from local machine
-ssh -L 8000:localhost:8000 -L 3000:localhost:3000 username@hpc-login-node
+ssh -L 8000:10.241.1.171:8010 -L 3000:localhost:3000 username@hpc-login-node
 ```
 
 ### Step 6: Using Screen/Tmux (Persistent Sessions)
@@ -353,7 +353,7 @@ tmux new -s pgxparser
 # Terminal 1: Backend
 conda activate pgxbridge
 cd ~/pgx-bridge_v02/pgx-parser-backend-py
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 10.241.1.171 --port 8010
 
 # Terminal 2: Frontend
 conda activate pgxbridge
@@ -383,7 +383,7 @@ conda activate pgxbridge
 
 # Start backend (interactive node)
 cd ~/pgx-bridge_v02/pgx-parser-backend-py
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 10.241.1.171 --port 8010
 
 # Start frontend (interactive node)  
 cd ~/pgx-bridge_v02/pgx-parser-ui
@@ -618,7 +618,7 @@ cd pgx-bridge_v02/pgx-parser-backend-py
 source venv/bin/activate
 
 # Start server
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 10.241.1.171 --port 8010 --reload
 
 # Or use the startup script
 cd ..
@@ -679,7 +679,7 @@ Type=simple
 User=your_username
 WorkingDirectory=/path/to/pgx-bridge_v02/pgx-parser-backend-py
 Environment="PATH=/path/to/pgx-bridge_v02/pgx-parser-backend-py/venv/bin"
-ExecStart=/path/to/pgx-bridge_v02/pgx-parser-backend-py/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+ExecStart=/path/to/pgx-bridge_v02/pgx-parser-backend-py/venv/bin/uvicorn main:app --host 10.241.1.171 --port 8010
 Restart=always
 RestartSec=10
 
@@ -763,7 +763,7 @@ server {
 
     # Backend API
     location /api/ {
-        proxy_pass http://localhost:8000/api/;
+        proxy_pass http://10.241.1.171:8010/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -778,7 +778,7 @@ server {
 
     # API docs
     location /docs {
-        proxy_pass http://localhost:8000/docs;
+        proxy_pass http://10.241.1.171:8010/docs;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
     }
@@ -836,7 +836,7 @@ sudo certbot --nginx -d your-domain.com
 
 ```bash
 # Backend health check
-curl http://localhost:8000/healthz
+curl http://10.241.1.171:8010/healthz
 
 # Check logs
 tail -f pgx-parser-backend-py/logs/*.log
@@ -870,12 +870,12 @@ If accessing from your local machine:
 
 ```bash
 # SSH tunnel from local machine
-ssh -L 8000:localhost:8000 -L 3000:localhost:3000 user@server
+ssh -L 8000:10.241.1.171:8010 -L 3000:localhost:3000 user@server
 ```
 
 Then access:
 - Frontend: http://localhost:3000
-- Backend: http://localhost:8000
+- Backend: http://10.241.1.171:8010
 
 ---
 
@@ -883,7 +883,7 @@ Then access:
 
 ```bash
 # Start backend (development)
-cd pgx-parser-backend-py && source venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8000
+cd pgx-parser-backend-py && source venv/bin/activate && uvicorn main:app --host 10.241.1.171 --port 8010
 
 # Start frontend (development)
 cd pgx-parser-ui && npm start
@@ -916,7 +916,7 @@ sudo systemctl stop pgx-frontend
 - [ ] Install Node.js dependencies (`npm ci`)
 - [ ] Create `.env` files with Azure credentials
 - [ ] Create `out/` directory with proper permissions
-- [ ] Test backend: `curl http://localhost:8000/healthz`
+- [ ] Test backend: `curl http://10.241.1.171:8010/healthz`
 - [ ] Test frontend: Access http://server-ip:3000
 - [ ] Configure firewall rules (ports 3000, 8000)
 - [ ] Set up systemd services (optional)

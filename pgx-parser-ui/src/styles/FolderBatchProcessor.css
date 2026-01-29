@@ -345,3 +345,50 @@
 .processing .progress-fill {
   animation: pulse 1.5s ease-in-out infinite;
 }
+
+/* Export Buttons Container */
+.export-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.export-btn.patient-report-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+.export-btn.patient-report-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.export-btn.ehr-report-btn {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  border-color: #11998e;
+}
+
+.export-btn.ehr-report-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0f8a80 0%, #32d970 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
+}
+
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .export-buttons {
+    flex-direction: column;
+  }
+  
+  .export-buttons .export-btn {
+    width: 100%;
+  }
+}

@@ -28,14 +28,14 @@ FastAPI backend for PDF keyword filtering and Azure Document Intelligence analys
 ## Running the Server
 
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 10.241.1.171 --port 8010
 ```
 
-The API will be available at `http://localhost:8000`
+The API will be available at `http://10.241.1.171:8010`
 
 ## API Documentation
 
-Visit `http://localhost:8000/docs` for interactive Swagger documentation.
+Visit `http://10.241.1.171:8010/docs` for interactive Swagger documentation.
 
 ## Endpoints
 
@@ -53,7 +53,7 @@ Visit `http://localhost:8000/docs` for interactive Swagger documentation.
 ## Example Usage
 
 ```bash
-curl -X POST http://localhost:8000/api/process-document \
+curl -X POST http://10.241.1.171:8010/api/process-document \
   -F "keyword=revenue" \
   -F "file=@document.pdf"
 ```
